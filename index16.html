@@ -1896,7 +1896,7 @@
     }
 
     // =========================================================
-    // 15. إحصائيات صغيرة (لم يتغير)
+    // 15. إحصائيات صغيرة (لم تتغير)
     // =========================================================
     function updateStatsMini() {
         document.getElementById('totalClasses').textContent = classesList.length;
@@ -1907,8 +1907,34 @@
         const notInspectedToday = classesList.filter(cls => !inspectedClassesToday.has(cls));
         document.getElementById('notInspected').textContent = notInspectedToday.length;
         updateBestClass();
-        const openReportsCount = reports.filter(r => r.status !== 'مغلق' && r.status !== 'تم الإصلاح').length;
+        
+        // تحديث عدد البلاغات المفتوحة بناءً على الحالة الحالية من localStorage
+        const statuses = getReportStatuses();
+        let openReportsCount = 0;
+        // حساب البلاغات من الملاحظات
+        for (const cid in studentNotesMap) {
+            const notesObj = studentNotesMap[cid];
+            for (const sname in notesObj) {
+                const entry = notesObj[sname];
+                if (entry && entry.note && entry.note.trim() !== '') {
+                    const id = generateReportId(sname, 'غير محدد', entry.note);
+                    const status = statuses[id] || 'new';
+                    if (status !== 'fixed' && status !== 'تم الإصلاح') {
+                        openReportsCount++;
+                    }
+                }
+            }
+        }
+        // حساب البلاغات من reports
+        reports.forEach(r => {
+            const id = 'report_' + r.desc.substring(0,15) + '_' + r.date;
+            const status = statuses[id] || 'new';
+            if (status !== 'fixed' && status !== 'تم الإصلاح') {
+                openReportsCount++;
+            }
+        });
         document.getElementById('openReports').textContent = openReportsCount;
+        
         const threeDaysAgo = new Date();
         threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
         const newDamages = reports.filter(r => {
@@ -1926,7 +1952,23 @@
             const avg = rankingData.reduce((sum, r) => sum + r.cleanliness, 0) / (rankingData.length || 1);
             document.getElementById('rAvgClean').textContent = Math.round(avg) + '%';
         }
-        document.getElementById('rReports').textContent = reports.length;
+        
+        // تحديث عدد البلاغات الكلي بناءً على الحالة الحالية
+        let totalReports = 0;
+        for (const cid in studentNotesMap) {
+            const notesObj = studentNotesMap[cid];
+            for (const sname in notesObj) {
+                const entry = notesObj[sname];
+                if (entry && entry.note && entry.note.trim() !== '') {
+                    totalReports++;
+                }
+            }
+        }
+        reports.forEach(r => {
+            totalReports++;
+        });
+        document.getElementById('rReports').textContent = totalReports;
+        
         const damageReports = reports.filter(r => r.status.includes('تلف') || r.status.includes('كسر') || r.status === 'جديد');
         document.getElementById('rDamages').textContent = damageReports.length;
         document.getElementById('rClasses').textContent = classesList.length;
@@ -2002,6 +2044,7 @@
         statuses[id] = status;
         localStorage.setItem('reportStatuses', JSON.stringify(statuses));
         renderReports();
+        updateStatsMini(); // تحديث الإحصائيات عند تغيير الحالة
     }
 
     function generateReportId(student, cls, note) {
@@ -2070,14 +2113,18 @@
             const div = document.createElement('div');
             div.className = 'report-item';
 
+            // قراءة الحالة من localStorage (نفس مصدر البيانات)
             let currentStatus = statuses[item.id] || 'new';
-            if (item.type === 'report' && item.statusText) {
+            
+            // إذا كان من نوع report، نأخذ الحالة من statusText إذا لم تكن مخزنة
+            if (item.type === 'report' && item.statusText && !statuses[item.id]) {
                 const st = item.statusText;
                 if (st.includes('صيانة') || st.includes('تحويل')) currentStatus = 'maintenance';
                 else if (st.includes('إصلاح') || st.includes('مغلق') || st.includes('تم الإصلاح')) currentStatus = 'fixed';
                 else if (st.includes('جديد') || st.includes('غير معالجة')) currentStatus = 'new';
                 else if (st.includes('قيد') || st.includes('مراجعة') || st.includes('متابعة')) currentStatus = 'pending';
                 else currentStatus = 'new';
+                // تخزين الحالة في localStorage لتكون ديناميكية
                 statuses[item.id] = currentStatus;
                 localStorage.setItem('reportStatuses', JSON.stringify(statuses));
             }
@@ -2120,10 +2167,11 @@
         statuses[id] = next;
         localStorage.setItem('reportStatuses', JSON.stringify(statuses));
         renderReports();
+        updateStatsMini(); // تحديث الإحصائيات عند تغيير الحالة
     }
 
     // =========================================================
-    // 18. تصدير Excel (لم يتغير)
+    // 18. تصدير Excel (مع الحالة الديناميكية للبلاغات)
     // =========================================================
     function exportExcel() {
         if (typeof ExcelJS === 'undefined') {
@@ -2167,6 +2215,103 @@
             wsSummary.getRow(2).alignment = { horizontal: 'center' };
             wsSummary.eachRow((row, idx) => { if (idx > 2) row.alignment = { horizontal: 'right' }; });
 
+            // =========================================================
+            // قسم المقارنة الشاملة للفصول (جديد)
+            // =========================================================
+            const wsComparison = workbook.addWorksheet('مقارنة الفصول', { properties: { tabColor: { argb: 'FF0D9488' } } });
+            wsComparison.columns = [
+                { header: 'الترتيب', key: 'rank', width: 10 },
+                { header: 'الفصل', key: 'class', width: 15 },
+                { header: 'نسبة المحافظة', key: 'percent', width: 15 },
+                { header: 'أفضل طالب محافظة', key: 'bestStudent', width: 25 },
+                { header: 'أقل طالب محافظة', key: 'worstStudent', width: 25 }
+            ];
+            const hdrComp = wsComparison.getRow(1);
+            hdrComp.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+            hdrComp.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } };
+            hdrComp.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            // حساب أفضل وأقل طالب لكل فصل بناءً على عدد الملاحظات السلبية
+            function getStudentRankingForClass(cls) {
+                const classStudents = studentsData.filter(s => s.class === cls);
+                const studentScores = {};
+                
+                classStudents.forEach(student => {
+                    let negativeNotes = 0;
+                    let totalNotes = 0;
+                    
+                    for (const cid in studentNotesMap) {
+                        const notesObj = studentNotesMap[cid];
+                        if (notesObj[student.name]) {
+                            const entry = notesObj[student.name];
+                            if (entry.note && entry.note.trim() !== '') {
+                                totalNotes++;
+                                // التحقق من وجود كلمات تدل على تلف أو مشكلة
+                                const negativeKeywords = ['تلف', 'كسر', 'مكسور', 'غير صحيح', 'خطأ', 'مشكلة', 'فوضى', 'غير مرتب', 'إهمال', 'تالف', 'معيب', 'مناسب', 'إعاقة', 'عائق'];
+                                const noteLower = entry.note.toLowerCase();
+                                let isNegative = false;
+                                negativeKeywords.forEach(keyword => {
+                                    if (noteLower.includes(keyword)) {
+                                        isNegative = true;
+                                    }
+                                });
+                                if (isNegative) {
+                                    negativeNotes++;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // إذا لم توجد ملاحظات، اعتبر الطالب ممتاز (نسبة 100%)
+                    if (totalNotes === 0) {
+                        studentScores[student.name] = 100;
+                    } else {
+                        // نسبة المحافظة = (الملاحظات الإيجابية / إجمالي الملاحظات) * 100
+                        const positiveNotes = totalNotes - negativeNotes;
+                        const score = Math.round((positiveNotes / totalNotes) * 100);
+                        studentScores[student.name] = score;
+                    }
+                });
+                
+                // ترتيب الطلاب حسب النسبة
+                const sortedStudents = Object.entries(studentScores).sort((a, b) => b[1] - a[1]);
+                return sortedStudents;
+            }
+
+            // ترتيب الفصول حسب نسبة المحافظة
+            const classComparison = [];
+            classesList.forEach(cls => {
+                const ranking = rankingData.find(r => r.class === cls);
+                const percent = ranking ? ranking.total : 0;
+                const studentRanking = getStudentRankingForClass(cls);
+                const bestStudent = studentRanking.length > 0 ? studentRanking[0][0] : 'لا يوجد طلاب';
+                const worstStudent = studentRanking.length > 1 ? studentRanking[studentRanking.length - 1][0] : (studentRanking.length === 1 ? studentRanking[0][0] : 'لا يوجد طلاب');
+                
+                classComparison.push({
+                    class: cls,
+                    percent: percent,
+                    bestStudent: bestStudent,
+                    worstStudent: worstStudent
+                });
+            });
+
+            // ترتيب الفصول تنازلياً حسب النسبة
+            classComparison.sort((a, b) => b.percent - a.percent);
+
+            classComparison.forEach((item, index) => {
+                wsComparison.addRow({
+                    rank: index + 1,
+                    class: item.class,
+                    percent: item.percent + '%',
+                    bestStudent: item.bestStudent,
+                    worstStudent: item.worstStudent
+                });
+            });
+
+            // =========================================================
+            // باقي الأوراق كما هي (لم تتغير)
+            // =========================================================
+
             const wsRank = workbook.addWorksheet('ترتيب الفصول', { properties: { tabColor: { argb: 'FFA87D2A' } } });
             wsRank.columns = [
                 { header: '#', key: 'rank', width: 6 },
@@ -2191,6 +2336,9 @@
                 });
             });
 
+            // =========================================================
+            // ورقة البلاغات - الحالة ديناميكية من localStorage
+            // =========================================================
             const wsReports = workbook.addWorksheet('البلاغات', { properties: { tabColor: { argb: 'FFA13D3D' } } });
             wsReports.columns = [
                 { header: 'الوصف', key: 'desc', width: 40 },
@@ -2200,6 +2348,10 @@
             const hdrRep = wsReports.getRow(1);
             hdrRep.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
             hdrRep.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFA13D3D' } };
+            
+            // جلب الحالات من localStorage
+            const statuses = getReportStatuses();
+            
             const allReports = [];
             for (const cid in studentNotesMap) {
                 const notesObj = studentNotesMap[cid];
@@ -2208,19 +2360,47 @@
                     if (entry && entry.note && entry.note.trim() !== '') {
                         const student = studentsData.find(s => s.name === sname);
                         const cls = student ? student.class : 'غير محدد';
+                        const id = generateReportId(sname, cls, entry.note);
+                        // قراءة الحالة الحالية من localStorage
+                        let status = statuses[id] || 'new';
+                        // تحويل الحالة إلى النص المناسب
+                        let statusText = 'جديد';
+                        switch (status) {
+                            case 'maintenance': statusText = 'صيانة'; break;
+                            case 'fixed': statusText = 'تم الإصلاح'; break;
+                            case 'pending': statusText = 'قيد المتابعة'; break;
+                            default: statusText = 'جديد';
+                        }
                         allReports.push({
                             desc: `الطالب: ${sname} (${cls}) - ${entry.note}`,
-                            status: 'جديد',
+                            status: statusText,
                             date: new Date().toISOString().slice(0,10)
                         });
                     }
                 }
             }
+            
+            // إضافة البلاغات المسجلة في النظام مع حالتها الديناميكية
             reports.forEach(r => {
-                allReports.push({ desc: r.desc, status: r.status, date: r.date });
+                const id = 'report_' + r.desc.substring(0,15) + '_' + r.date;
+                let status = statuses[id] || 'new';
+                let statusText = 'جديد';
+                switch (status) {
+                    case 'maintenance': statusText = 'صيانة'; break;
+                    case 'fixed': statusText = 'تم الإصلاح'; break;
+                    case 'pending': statusText = 'قيد المتابعة'; break;
+                    default: statusText = 'جديد';
+                }
+                allReports.push({ 
+                    desc: r.desc, 
+                    status: statusText, 
+                    date: r.date 
+                });
             });
+            
             allReports.forEach(r => wsReports.addRow(r));
 
+            // ورقة الطلاب (لم تتغير)
             const wsStudents = workbook.addWorksheet('الطلاب', { properties: { tabColor: { argb: 'FF3D6B7A' } } });
             wsStudents.columns = [
                 { header: 'اسم الطالب', key: 'name', width: 20 },
@@ -2316,6 +2496,7 @@
                 row.commit();
             });
 
+            // ورقة الفحوصات (لم تتغير)
             const wsInsp = workbook.addWorksheet('الفحوصات', { properties: { tabColor: { argb: 'FF1F7A4A' } } });
             wsInsp.columns = [
                 { header: 'الفصل', key: 'class', width: 12 },
@@ -2390,7 +2571,7 @@
             });
 
             const footerText = 'جميع الحقوق محفوظة © محمد رضا عوف 2026';
-            [wsSummary, wsRank, wsReports, wsStudents, wsInsp].forEach(ws => {
+            [wsSummary, wsComparison, wsRank, wsReports, wsStudents, wsInsp].forEach(ws => {
                 const lastRow = ws.lastRow;
                 if (lastRow) {
                     const footerRow = ws.addRow([]);
