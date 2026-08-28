@@ -438,6 +438,7 @@
         .cloud-status .ready { color: #0d9488; }
         .cloud-status .offline { color: #6b7280; }
 
+        /* مؤشر حفظ تلقائي */
         .auto-save-indicator {
             display: inline-flex;
             align-items: center;
@@ -471,7 +472,7 @@
             </div>
         </div>
         <!-- حالة السحابة والحفظ التلقائي -->
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-3 flex-wrap">
             <span class="auto-save-indicator" id="autoSaveIndicator">
                 <i class="fas fa-cloud"></i>
                 <span id="autoSaveStatus">جاري التهيئة...</span>
@@ -479,15 +480,6 @@
             <span class="cloud-status" id="cloudStatus">
                 <span class="text-gray-500"><i class="fas fa-circle"></i> محلي</span>
             </span>
-            <button class="btn btn-success btn-sm" onclick="forceSaveToFirebase()">
-                <i class="fas fa-bolt ml-1"></i> حفظ قسري
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="checkFirebaseConnection()">
-                <i class="fas fa-plug ml-1"></i> اختبار
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="loadFromCloud()">
-                <i class="fas fa-cloud-download-alt ml-1"></i> استرجاع
-            </button>
         </div>
     </div>
 </header>
@@ -503,6 +495,9 @@
         </button>
         <button class="delete-all-btn mr-auto" onclick="deleteAllData()">
             <i class="fas fa-trash-alt ml-1"></i> حذف جميع البيانات
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="forceSaveToCloud()">
+            <i class="fas fa-cloud-upload-alt ml-1"></i> حفظ الآن
         </button>
     </div>
 
@@ -683,7 +678,7 @@
 
 <script>
     // =========================================================
-    // 1. إعدادات Firebase
+    // تهيئة Firebase
     // =========================================================
     const firebaseConfig = {
         apiKey: "AIzaSyCsm5BMGSXAEAz6InhIhdXN-BW7YajT4I4",
@@ -698,21 +693,25 @@
     let db = null;
     let firebaseInitialized = false;
     let isSaving = false;
+    let saveTimeout = null;
     let lastDataHash = '';
 
     // =========================================================
-    // 2. دوال ضغط البيانات
+    // دوال ضغط البيانات (لتقليل الحجم)
     // =========================================================
+
     function compressImage(dataUrl, maxWidth = 200, maxHeight = 200, quality = 0.5) {
         return new Promise((resolve) => {
             if (!dataUrl || !dataUrl.startsWith('data:image')) {
                 resolve(dataUrl);
                 return;
             }
+            
             const img = new Image();
             img.onload = function() {
                 let width = img.width;
                 let height = img.height;
+                
                 if (width > maxWidth) {
                     height = (height * maxWidth) / width;
                     width = maxWidth;
@@ -721,15 +720,19 @@
                     width = (width * maxHeight) / height;
                     height = maxHeight;
                 }
+                
                 const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
+                
                 const compressed = canvas.toDataURL('image/jpeg', quality);
                 resolve(compressed);
             };
-            img.onerror = function() { resolve(dataUrl); };
+            img.onerror = function() {
+                resolve(dataUrl);
+            };
             img.src = dataUrl;
         });
     }
@@ -755,6 +758,7 @@
             for (const sname in notesMap[cid]) {
                 const entry = notesMap[cid][sname];
                 compressed[cid][sname] = { note: entry.note || '', images: [] };
+                
                 if (entry.images && entry.images.length > 0) {
                     for (const img of entry.images) {
                         if (img && img.length > 100000) {
@@ -786,18 +790,25 @@
 
     function splitDataIntoChunks(data, maxSize = 900000) {
         const json = JSON.stringify(data);
-        if (json.length <= maxSize) return [data];
+        if (json.length <= maxSize) {
+            return [data];
+        }
+        
         const chunks = [];
         const baseProps = ['classesList', 'teachersData', 'rankingData', 'reports', 'version', 'timestamp'];
         const baseData = {};
         baseProps.forEach(prop => {
-            if (data[prop] !== undefined) baseData[prop] = data[prop];
+            if (data[prop] !== undefined) {
+                baseData[prop] = data[prop];
+            }
         });
+        
         chunks.push(baseData);
+        
         if (data.studentsData && data.studentsData.length > 0) {
             const chunkSize = Math.max(1, Math.floor(data.studentsData.length / 3));
             for (let i = 0; i < data.studentsData.length; i += chunkSize) {
-                const chunk = {
+                const chunk = { 
                     ...baseData,
                     studentsData: data.studentsData.slice(i, i + chunkSize),
                     chunkIndex: chunks.length,
@@ -806,13 +817,16 @@
                 chunks.push(chunk);
             }
         }
+        
         if (data.studentNotesMap) {
             const keys = Object.keys(data.studentNotesMap);
             const chunkSize = Math.max(1, Math.floor(keys.length / 3));
             for (let i = 0; i < keys.length; i += chunkSize) {
                 const chunkKeys = keys.slice(i, i + chunkSize);
                 const chunkNotes = {};
-                chunkKeys.forEach(key => { chunkNotes[key] = data.studentNotesMap[key]; });
+                chunkKeys.forEach(key => {
+                    chunkNotes[key] = data.studentNotesMap[key];
+                });
                 const chunk = {
                     ...baseData,
                     studentNotesMap: chunkNotes,
@@ -822,12 +836,14 @@
                 chunks.push(chunk);
             }
         }
+        
         return chunks;
     }
 
     // =========================================================
-    // 3. دوال Firebase - مع حل مشكلة القواعد المغلقة
+    // دوال Firebase
     // =========================================================
+
     function initFirebase() {
         try {
             if (typeof firebase !== 'undefined') {
@@ -838,10 +854,12 @@
                 firebaseInitialized = true;
                 console.log('✅ Firebase initialized successfully');
                 updateCloudStatus('ready', 'السحابة جاهزة');
-                // بدء الحفظ التلقائي بعد التهيئة
-                setTimeout(startAutoSave, 3000);
-                // التحقق من القواعد
-                setTimeout(checkFirebaseConnection, 2000);
+                
+                // جلب البيانات من السحابة فور الاتصال
+                loadDataFromCloud().then(() => {
+                    // بدء الحفظ التلقائي بعد تحميل البيانات
+                    startAutoSave();
+                });
             } else {
                 console.warn('⚠️ Firebase SDK not loaded');
                 updateCloudStatus('offline', 'جاري التحميل...');
@@ -850,6 +868,26 @@
         } catch (e) {
             console.error('❌ Firebase init error:', e);
             updateCloudStatus('error', 'خطأ في الاتصال');
+        }
+    }
+
+    // دالة جلب البيانات من السحابة
+    async function loadDataFromCloud() {
+        if (!db) return;
+        try {
+            updateCloudStatus('syncing', 'جاري جلب البيانات...');
+            const doc = await db.collection('systemData').doc('mainData').get();
+            if (doc.exists) {
+                const data = doc.data();
+                applyCloudData(data);
+                updateCloudStatus('saved', 'تم مزامنة السحابة');
+                updateAutoSaveStatus('saved', '✅ البيانات محدثة');
+            } else {
+                updateCloudStatus('ready', 'السحابة فارغة');
+            }
+        } catch (e) {
+            console.error('❌ Error loading from cloud:', e);
+            updateCloudStatus('error', 'فشل جلب البيانات');
         }
     }
 
@@ -872,6 +910,7 @@
         const el = document.getElementById('autoSaveStatus');
         const icon = document.getElementById('autoSaveIndicator').querySelector('i');
         if (!el) return;
+        
         const statusMap = {
             'saved': { text: '✅ محفوظ في السحابة', icon: 'fa-cloud', color: 'saved' },
             'saving': { text: '⏳ جاري الحفظ...', icon: 'fa-spinner fa-spin', color: 'saving' },
@@ -879,6 +918,7 @@
             'offline': { text: '📡 غير متصل', icon: 'fa-cloud', color: 'offline' },
             'ready': { text: '🔄 جاهز للحفظ', icon: 'fa-cloud', color: 'ready' }
         };
+        
         const statusInfo = statusMap[status] || statusMap['offline'];
         el.textContent = message || statusInfo.text;
         el.className = statusInfo.color;
@@ -904,152 +944,6 @@
 
     function getDataHash(data) {
         return JSON.stringify(data);
-    }
-
-    // =========================================================
-    // 4. دوال الحفظ والاسترجاع (مع حل مشكلة القواعد)
-    // =========================================================
-
-    // دالة للتحقق من الاتصال
-    async function checkFirebaseConnection() {
-        try {
-            console.log('🔍 جاري التحقق من الاتصال بـ Firebase...');
-            const testDoc = await db.collection('systemData').doc('test').get();
-            console.log('✅ الاتصال بـ Firebase يعمل');
-            updateCloudStatus('ready', 'متصل');
-            return true;
-        } catch (e) {
-            console.error('❌ فشل الاتصال بـ Firebase:', e.message);
-            console.log('📌 تأكد من تغيير قواعد Firebase إلى:');
-            console.log('  allow read, write: if true;');
-            updateCloudStatus('error', 'تحقق من القواعد');
-            return false;
-        }
-    }
-
-    // دالة لإعادة محاولة الحفظ مع تأخير
-    async function retrySaveWithDelay(data, maxRetries = 5) {
-        let retries = 0;
-        while (retries < maxRetries) {
-            try {
-                console.log(`📤 محاولة الحفظ ${retries + 1}/${maxRetries}...`);
-                await db.collection('systemData').doc('mainData').set(data, { merge: true });
-                console.log('✅ تم الحفظ بنجاح!');
-                return true;
-            } catch (e) {
-                retries++;
-                console.warn(`⚠️ فشلت المحاولة ${retries}:`, e.message);
-                if (retries < maxRetries) {
-                    const delay = 2000 * retries;
-                    console.log(`⏳ الانتظار ${delay/1000} ثانية قبل المحاولة مرة أخرى...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-        }
-        console.error('❌ فشل الحفظ بعد ' + maxRetries + ' محاولات');
-        return false;
-    }
-
-    // الحفظ القسري
-    async function forceSaveToFirebase() {
-        console.log('🔄 بدء الحفظ القسري...');
-        updateAutoSaveStatus('saving', 'جاري الحفظ القسري...');
-        
-        try {
-            let data = getCurrentData();
-            data = await compressAllData(data);
-            data.lastSavedAt = new Date().toISOString();
-            data._forceSave = true;
-            
-            const saved = await retrySaveWithDelay(data, 5);
-            
-            if (saved) {
-                alert('✅ تم حفظ البيانات في السحابة بنجاح!');
-                updateAutoSaveStatus('saved', '✅ محفوظ في السحابة');
-                updateCloudStatus('saved', 'تم الحفظ');
-                return true;
-            } else {
-                alert('❌ فشل الحفظ. تأكد من تغيير قواعد Firebase.');
-                updateAutoSaveStatus('error', '❌ فشل الحفظ');
-                updateCloudStatus('error', 'فشل الحفظ');
-                return false;
-            }
-        } catch (e) {
-            console.error('❌ خطأ في الحفظ القسري:', e);
-            alert('❌ حدث خطأ: ' + e.message);
-            updateAutoSaveStatus('error', '❌ فشل الحفظ');
-            return false;
-        }
-    }
-
-    // استرجاع البيانات
-    async function loadFromCloud() {
-        if (!firebaseInitialized) {
-            alert('⏳ جاري تهيئة الاتصال بالسحابة...');
-            initFirebase();
-            return;
-        }
-
-        if (!confirm('⚠️ استرجاع البيانات من السحابة سيحل محل البيانات الحالية. هل تريد المتابعة؟')) return;
-
-        try {
-            updateAutoSaveStatus('saving', 'جاري الاسترجاع...');
-            updateCloudStatus('syncing', 'جاري الاسترجاع...');
-
-            let doc = await db.collection('systemData').doc('mainData').get();
-            let data = null;
-            
-            if (doc.exists) {
-                data = doc.data();
-            } else {
-                const metadata = await db.collection('systemData').doc('mainData_metadata').get();
-                if (metadata.exists) {
-                    const totalChunks = metadata.data().totalChunks || 0;
-                    data = {};
-                    for (let i = 0; i < totalChunks; i++) {
-                        const docId = i === 0 ? 'mainData' : `mainData_chunk_${i}`;
-                        const chunkDoc = await db.collection('systemData').doc(docId).get();
-                        if (chunkDoc.exists) {
-                            const chunkData = chunkDoc.data();
-                            Object.keys(chunkData).forEach(key => {
-                                if (key !== 'chunkIndex' && key !== 'totalChunks') {
-                                    if (Array.isArray(chunkData[key]) && data[key]) {
-                                        data[key] = [...data[key], ...chunkData[key]];
-                                    } else if (typeof chunkData[key] === 'object' && data[key]) {
-                                        data[key] = { ...data[key], ...chunkData[key] };
-                                    } else {
-                                        data[key] = chunkData[key];
-                                    }
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-
-            if (!data || Object.keys(data).length === 0) {
-                alert('ℹ️ لا توجد بيانات محفوظة في السحابة');
-                updateAutoSaveStatus('ready', 'لا توجد بيانات');
-                updateCloudStatus('ready', 'لا توجد بيانات');
-                return;
-            }
-
-            if (applyCloudData(data)) {
-                alert('✅ تم استرجاع البيانات من السحابة بنجاح');
-                updateAutoSaveStatus('saved', '✅ تم الاسترجاع');
-                updateCloudStatus('saved', 'تم الاسترجاع');
-            } else {
-                alert('❌ حدث خطأ أثناء تطبيق البيانات المسترجعة');
-                updateAutoSaveStatus('error', '❌ خطأ في الاسترجاع');
-                updateCloudStatus('error', 'خطأ في الاسترجاع');
-            }
-
-        } catch (e) {
-            console.error('❌ Load from cloud error:', e);
-            alert('❌ حدث خطأ أثناء الاسترجاع من السحابة: ' + e.message);
-            updateAutoSaveStatus('error', '❌ فشل الاسترجاع');
-            updateCloudStatus('error', 'فشل الاسترجاع');
-        }
     }
 
     function applyCloudData(data) {
@@ -1084,8 +978,9 @@
     }
 
     // =========================================================
-    // 5. الحفظ التلقائي المحسن
+    // الحفظ التلقائي في السحابة (بدون كلمة مرور)
     // =========================================================
+
     async function autoSaveToCloud() {
         if (!firebaseInitialized) {
             updateAutoSaveStatus('offline', 'جاري التهيئة...');
@@ -1112,16 +1007,39 @@
             data = await compressAllData(data);
             data.lastSavedAt = new Date().toISOString();
 
-            // محاولة الحفظ
-            const saved = await retrySaveWithDelay(data, 3);
-            
-            if (saved) {
-                lastDataHash = currentHash;
-                updateAutoSaveStatus('saved', '✅ محفوظ في السحابة');
-                updateCloudStatus('saved', 'تم الحفظ');
-            } else {
-                throw new Error('فشل الحفظ بعد عدة محاولات');
+            try {
+                const jsonSize = JSON.stringify(data).length;
+                if (jsonSize > 900000) {
+                    const chunks = splitDataIntoChunks(data);
+                    for (let i = 0; i < chunks.length; i++) {
+                        const chunkData = chunks[i];
+                        const docId = i === 0 ? 'mainData' : `mainData_chunk_${i}`;
+                        await db.collection('systemData').doc(docId).set(chunkData, { merge: true });
+                    }
+                    await db.collection('systemData').doc('mainData_metadata').set({
+                        totalChunks: chunks.length,
+                        lastSavedAt: new Date().toISOString()
+                    }, { merge: true });
+                } else {
+                    await db.collection('systemData').doc('mainData').set(data, { merge: true });
+                }
+            } catch (e) {
+                console.warn('⚠️ Failed to save full data, trying chunks...', e);
+                const chunks = splitDataIntoChunks(data);
+                for (let i = 0; i < chunks.length; i++) {
+                    const chunkData = chunks[i];
+                    const docId = i === 0 ? 'mainData' : `mainData_chunk_${i}`;
+                    await db.collection('systemData').doc(docId).set(chunkData, { merge: true });
+                }
+                await db.collection('systemData').doc('mainData_metadata').set({
+                    totalChunks: chunks.length,
+                    lastSavedAt: new Date().toISOString()
+                }, { merge: true });
             }
+
+            lastDataHash = currentHash;
+            updateAutoSaveStatus('saved', '✅ محفوظ في السحابة');
+            updateCloudStatus('saved', 'تم الحفظ');
 
         } catch (e) {
             console.error('❌ Auto save error:', e);
@@ -1133,15 +1051,16 @@
     }
 
     function startAutoSave() {
-        // حفظ فوري بعد 3 ثوان
+        // حفظ فوري بعد 3 ثوان من تحميل الصفحة
         setTimeout(autoSaveToCloud, 3000);
         
         // حفظ كل 30 ثانية
         setInterval(autoSaveToCloud, 30000);
         
-        // حفظ عند أي تغيير
-        const debouncedSave = debounce(autoSaveToCloud, 3000);
+        // حفظ عند أي تغيير في البيانات (بعد 5 ثوان من آخر تغيير)
+        const debouncedSave = debounce(autoSaveToCloud, 5000);
         
+        // مراقبة التغييرات
         const originalSaveData = saveDataToLocalStorage;
         saveDataToLocalStorage = function() {
             originalSaveData();
@@ -1158,8 +1077,14 @@
         };
     }
 
+    // حفظ فوري يدوي (عند الضغط على زر "حفظ الآن")
+    async function forceSaveToCloud() {
+        updateAutoSaveStatus('saving', 'جاري الحفظ الفوري...');
+        await autoSaveToCloud();
+    }
+
     // =========================================================
-    // 6. البيانات الأساسية (نفسها كما كانت)
+    // 1. البيانات الأساسية
     // =========================================================
     let classesList = [];
     let teachersData = {};
@@ -1179,7 +1104,7 @@
     ];
 
     // =========================================================
-    // 7. حفظ واسترجاع البيانات من localStorage
+    // 2. حفظ واسترجاع البيانات من localStorage
     // =========================================================
     let studentNotesMap = {};
 
@@ -1227,7 +1152,7 @@
     loadDataFromLocalStorage();
 
     // =========================================================
-    // 8. إدارة التاريخ
+    // 3. إدارة التاريخ
     // =========================================================
     function updateInspectionDate() {
         const dateInput = document.getElementById('inspectionDate');
@@ -1250,7 +1175,7 @@
     setDefaultDate();
 
     // =========================================================
-    // 9. دوال مساعدة
+    // 4. دوال مساعدة
     // =========================================================
     function getStatusBadge(status) {
         const map = { 'ممتاز': 'badge-excellent', 'جيد جداً': 'badge-verygood', 'جيد': 'badge-good', 'يحتاج متابعة': 'badge-needs', 'غير مقبول': 'badge-unacceptable' };
@@ -1294,7 +1219,7 @@
     }
 
     // =========================================================
-    // 10. حذف جميع البيانات
+    // 5. حذف جميع البيانات
     // =========================================================
     function deleteAllData() {
         if (!confirm('⚠️ هل أنت متأكد من حذف جميع البيانات؟\nسيتم حذف: المعلمين، الفصول، الطلاب، الفحوصات، الملاحظات، البلاغات.\nلا يمكن التراجع عن هذا الإجراء!')) return;
@@ -1326,7 +1251,7 @@
     }
 
     // =========================================================
-    // 11. دوال الإدارة
+    // 6. دوال الإدارة (لم تتغير)
     // =========================================================
     function addTeacherManual() {
         const name = prompt('أدخل اسم المعلم:');
@@ -1438,7 +1363,7 @@
     }
 
     // =========================================================
-    // 12. استيراد Excel
+    // 7. استيراد Excel (لم يتغير)
     // =========================================================
     function loadXLSX(callback) {
         if (typeof XLSX !== 'undefined') { callback(); return; }
@@ -1531,7 +1456,7 @@
     }
 
     // =========================================================
-    // 13. تحميل نموذج Excel
+    // 8. تحميل نموذج Excel (لم يتغير)
     // =========================================================
     function downloadSampleExcel() {
         if (typeof ExcelJS === 'undefined') {
@@ -1572,7 +1497,7 @@
     }
 
     // =========================================================
-    // 14. تغيير الفصل وعرض الطلاب
+    // 9. تغيير الفصل وعرض الطلاب (لم يتغير)
     // =========================================================
     function onClassChange() {
         const cls = document.getElementById('classSelectorMain').value;
@@ -1635,7 +1560,7 @@
     }
 
     // =========================================================
-    // 15. بناء نموذج الفحص
+    // 10. بناء نموذج الفحص (لم يتغير)
     // =========================================================
     let currentCameraTarget = null;
 
@@ -1816,7 +1741,7 @@
     }
 
     // =========================================================
-    // 16. الكاميرا ورفع الصور
+    // 11. الكاميرا ورفع الصور (لم يتغير)
     // =========================================================
     function openCameraForItem(btn) {
         const item = btn.closest('.inspection-item');
@@ -1911,7 +1836,7 @@
     }
 
     // =========================================================
-    // 17. ملاحظات الطلاب
+    // 12. ملاحظات الطلاب (لم يتغير)
     // =========================================================
     function buildStudentNotes() {
         const container = document.getElementById('studentNotesContainer');
@@ -1944,7 +1869,7 @@
     }
 
     // =========================================================
-    // 18. التاريخ والوقت
+    // 13. التاريخ والوقت (لم يتغير)
     // =========================================================
     function updateDateTime() {
         const now = new Date();
@@ -1955,7 +1880,7 @@
     updateDateTime();
 
     // =========================================================
-    // 19. تحديث أفضل فصل
+    // 14. تحديث أفضل فصل (لم يتغير)
     // =========================================================
     function updateBestClass() {
         if (rankingData.length === 0) {
@@ -1971,7 +1896,7 @@
     }
 
     // =========================================================
-    // 20. إحصائيات صغيرة
+    // 15. إحصائيات صغيرة (لم يتغير)
     // =========================================================
     function updateStatsMini() {
         document.getElementById('totalClasses').textContent = classesList.length;
@@ -2009,7 +1934,7 @@
     }
 
     // =========================================================
-    // 21. تحديث الترتيب والبلاغات
+    // 16. تحديث الترتيب والبلاغات (لم يتغير)
     // =========================================================
     let expandedColumns = false;
     function toggleExpandColumns() {
@@ -2064,7 +1989,7 @@
     }
 
     // =========================================================
-    // 22. عرض البلاغات
+    // 17. عرض البلاغات المحسّن (لم يتغير)
     // =========================================================
     function getReportStatuses() {
         try {
@@ -2198,7 +2123,7 @@
     }
 
     // =========================================================
-    // 23. تصدير Excel
+    // 18. تصدير Excel (لم يتغير)
     // =========================================================
     function exportExcel() {
         if (typeof ExcelJS === 'undefined') {
@@ -2494,7 +2419,7 @@
     }
 
     // =========================================================
-    // 24. إعادة تعيين النموذج
+    // 19. إعادة تعيين النموذج (لم يتغير)
     // =========================================================
     function resetForm() {
         document.querySelectorAll('.status-select').forEach(sel => sel.value = 'very_good');
@@ -2509,7 +2434,7 @@
     }
 
     // =========================================================
-    // 25. حفظ الفحص
+    // 20. حفظ الفحص (لم يتغير)
     // =========================================================
     document.getElementById('inspectionForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -2556,7 +2481,7 @@
     });
 
     // =========================================================
-    // 26. التبويب
+    // 21. التبويب (لم يتغير)
     // =========================================================
     function switchTab(tab) {
         const inspectionContent = document.getElementById('tabInspectionContent');
@@ -2581,7 +2506,7 @@
     }
 
     // =========================================================
-    // 27. التهيئة
+    // 22. التهيئة
     // =========================================================
     document.addEventListener('DOMContentLoaded', function() {
         initFirebase();
@@ -2593,9 +2518,7 @@
         setDefaultDate();
     });
 
-    // =========================================================
-    // 28. جعل الدوال عامة
-    // =========================================================
+    // جعل الدوال عامة
     window.exportExcel = exportExcel;
     window.switchTab = switchTab;
     window.resetForm = resetForm;
@@ -2622,9 +2545,7 @@
     window.updateInspectionDate = updateInspectionDate;
     window.openImagePreview = openImagePreview;
     window.cycleReportStatus = cycleReportStatus;
-    window.forceSaveToFirebase = forceSaveToFirebase;
-    window.loadFromCloud = loadFromCloud;
-    window.checkFirebaseConnection = checkFirebaseConnection;
+    window.forceSaveToCloud = forceSaveToCloud;
 </script>
 </body>
 </html>
