@@ -1,0 +1,2630 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>نظام إدارة بيئة الفصول</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+
+        * { font-family: 'Tajawal', 'Segoe UI', system-ui, sans-serif; }
+        body { background: #f2f5f9; font-family: 'Tajawal', sans-serif; }
+
+        .card {
+            background: white;
+            border-radius: 1.2rem;
+            box-shadow: 0 2px 12px rgba(0, 20, 40, 0.06);
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+        .card:hover { box-shadow: 0 6px 20px rgba(0, 20, 40, 0.08); }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.2;
+            color: #1a2a3a;
+        }
+
+        .badge-status {
+            padding: 0.2rem 0.8rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-excellent { background: #d4edda; color: #155724; }
+        .badge-verygood { background: #d1ecf1; color: #0c5460; }
+        .badge-good { background: #fff3cd; color: #856404; }
+        .badge-needs { background: #f8d7da; color: #721c24; }
+        .badge-unacceptable { background: #f5c6cb; color: #721c24; }
+
+        .btn {
+            border-radius: 10px;
+            font-weight: 700;
+            padding: 0.5rem 1.25rem;
+            transition: all 0.15s;
+            cursor: pointer;
+            border: none;
+            font-family: 'Tajawal', sans-serif;
+        }
+        .btn-primary { background: #1e4a6b; color: white; }
+        .btn-primary:hover { background: #143a54; transform: translateY(-1px); }
+
+        .btn-success { background: #1f7a4a; color: white; }
+        .btn-success:hover { background: #15633a; }
+
+        .btn-outline { background: white; border: 1px solid #bcc8d4; color: #1e2a3a; }
+        .btn-outline:hover { background: #e9edf2; }
+
+        .btn-danger { background: #a13d3d; color: white; }
+        .btn-danger:hover { background: #832e2e; }
+
+        .btn-warning { background: #a87d2a; color: white; }
+        .btn-warning:hover { background: #8d6822; }
+
+        .btn-info { background: #3d6b7a; color: white; }
+        .btn-info:hover { background: #305a68; }
+
+        .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.8rem; }
+
+        .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+        .file-input-wrapper input[type="file"] {
+            position: absolute; right: 0; top: 0;
+            opacity: 0; width: 100%; height: 100%; cursor: pointer;
+        }
+
+        .camera-icon {
+            background: #e9edf2;
+            padding: 0.3rem 0.7rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.1s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #1e2a3a;
+        }
+        .camera-icon:hover { background: #d5dce4; }
+
+        .inspection-item {
+            background: #f8fafc;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+        .inspection-item:hover { background: #f1f4f8; }
+
+        .damage-btn {
+            background: #fce8e8;
+            border: 1px solid #f5c6cb;
+            color: #a13d3d;
+            border-radius: 30px;
+            padding: 0.2rem 0.8rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: 0.1s;
+            cursor: pointer;
+        }
+        .damage-btn:hover { background: #f5d0d0; border-color: #d99b9b; }
+
+        .footer-credit {
+            border-top: 1px solid #d1d7df;
+            padding-top: 1.5rem;
+            margin-top: 2.5rem;
+            text-align: center;
+            color: #4a5a6a;
+            font-size: 0.9rem;
+        }
+
+        .status-bulb {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-left: 4px;
+            border: 1px solid #a0aab4;
+        }
+        .bulb-green { background: #2d8f4e; border-color: #1e6b3a; }
+        .bulb-yellow { background: #d4a13a; border-color: #b8862e; }
+        .bulb-red { background: #c44a4a; border-color: #a33a3a; }
+        .bulb-gray { background: #9aa2ae; border-color: #7a8595; }
+
+        .teacher-selector {
+            background: #f8fafc;
+            border-radius: 2rem;
+            padding: 0.5rem 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1rem;
+            border: 1px solid #dbe0e5;
+        }
+
+        .student-row {
+            background: #f8fafc;
+            border-radius: 0.75rem;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #dee2e6;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .student-row:hover { background: #f0f2f4; }
+
+        .student-select { min-width: 120px; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f3f5; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #b8c2cc; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9aa8b5; }
+
+        .teacher-badge {
+            background: #dbeafe;
+            color: #1a3a5a;
+            padding: 0.2rem 1rem;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .management-panel {
+            background: #f8fafc;
+            border-radius: 1rem;
+            padding: 1rem;
+            border: 1px dashed #b8c2cc;
+            margin-bottom: 1rem;
+        }
+
+        .tab-btn {
+            padding: 0.5rem 1.5rem;
+            border-radius: 30px;
+            font-weight: 700;
+            transition: 0.2s;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-family: 'Tajawal', sans-serif;
+        }
+        .tab-btn.active { background: #1e4a6b; color: white; }
+        .tab-btn.inactive { background: #e2e6ea; color: #1e2a3a; }
+        .tab-btn.inactive:hover { background: #d1d7df; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .student-note-input { flex: 1; min-width: 150px; }
+        .student-note-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            background: #f8fafc;
+            padding: 0.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #e2e6ea;
+        }
+
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .ranking-table th {
+            background: #1e2a3a;
+            color: white;
+            padding: 0.3rem 0.2rem;
+            font-weight: 700;
+            text-align: center;
+            border: 1px solid #3d4a57;
+        }
+        .ranking-table td {
+            padding: 0.25rem 0.15rem;
+            text-align: center;
+            border: 1px solid #dee2e6;
+            background: white;
+        }
+        .ranking-table tr:nth-child(even) td { background: #f8fafc; }
+        .ranking-table tr:hover td { background: #e2ecf5; }
+        .ranking-table .col-rank-num { width: 30px; font-weight: bold; }
+        .ranking-table .col-class { width: 50px; font-weight: bold; }
+        .ranking-table .col-percent { width: 40px; }
+        .ranking-table .col-total { width: 50px; font-weight: bold; color: #1e4a6b; }
+        .ranking-table .col-status { width: 60px; }
+
+        @media (max-width: 640px) {
+            .ranking-table .col-percent { width: 30px; font-size: 0.65rem; }
+            .ranking-table .col-total { width: 35px; font-size: 0.7rem; }
+            .ranking-table .col-status { width: 50px; }
+            .ranking-table .col-class { width: 40px; }
+        }
+
+        .report-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem 0.8rem;
+            padding: 0.6rem 0.8rem;
+            background: white;
+            border-radius: 0.75rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: 0.1s;
+        }
+        .report-item:hover {
+            background: #f8fafc;
+            border-color: #cbd5e0;
+        }
+        .report-item .desc {
+            flex: 2;
+            min-width: 120px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #1a2a3a;
+        }
+        .report-item .meta {
+            font-size: 0.7rem;
+            color: #5a6a7a;
+            background: #f1f4f8;
+            padding: 0.1rem 0.6rem;
+            border-radius: 30px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .report-item .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.15rem 0.6rem 0.15rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: #f1f4f8;
+            color: #1e2a3a;
+            cursor: pointer;
+            transition: 0.1s;
+            border: 1px solid transparent;
+        }
+        .report-item .status-badge:hover {
+            background: #e2e8f0;
+            border-color: #bcc8d4;
+        }
+        .report-item .status-badge .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 6px currentColor;
+            transition: 0.1s;
+        }
+        .dot.red { background: #dc3545; color: #dc3545; }
+        .dot.yellow { background: #ffc107; color: #ffc107; }
+        .dot.green { background: #28a745; color: #28a745; }
+        .dot.blue { background: #007bff; color: #007bff; }
+        .dot.gray { background: #9ca3af; color: #9ca3af; }
+
+        .camera-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(30, 40, 50, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .camera-overlay.active { display: flex; }
+        .camera-box {
+            background: #1e2a3a;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            max-width: 95%;
+            max-height: 95%;
+        }
+        .camera-box video {
+            width: 100%;
+            max-height: 70vh;
+            border-radius: 1rem;
+            background: #0f1a24;
+        }
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 0.75rem;
+        }
+
+        .delete-all-btn {
+            background: #fce8e8;
+            border: 1px solid #f5c6cb;
+            color: #a13d3d;
+            padding: 0.3rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .delete-all-btn:hover { background: #f5d0d0; border-color: #d99b9b; }
+
+        .date-picker {
+            border: 1px solid #cbd5e0;
+            border-radius: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.8rem;
+            background: white;
+        }
+        .date-picker:focus {
+            outline: none;
+            border-color: #1e4a6b;
+            ring: 2px solid #a0c4e8;
+        }
+
+        .expand-toggle {
+            cursor: pointer;
+            color: #1e4a6b;
+            font-weight: 600;
+            font-size: 0.7rem;
+        }
+        .expand-toggle:hover { text-decoration: underline; }
+
+        .stat-mini-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 0.5rem 0.8rem;
+            border: 1px solid #dfe3e8;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .stat-mini-card .num { font-size: 1.2rem; font-weight: 700; color: #1a2a3a; }
+        .stat-mini-card .label { font-size: 0.6rem; color: #5a6a7a; }
+
+        .saved-note-image {
+            max-width: 50px;
+            max-height: 50px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e0;
+            margin-left: 4px;
+        }
+        .student-photo-thumb {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #d1d7df;
+        }
+        .multi-photos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .multi-photos img {
+            width: 45px;
+            height: 45px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .multi-photos img:hover { transform: scale(1.05); border-color: #1e4a6b; }
+
+        h1, h2, h3, h4 { font-family: 'Tajawal', sans-serif; font-weight: 800; }
+        .font-title { font-family: 'Tajawal', sans-serif; font-weight: 700; }
+
+        /* مؤشر الحالة السحابية */
+        .cloud-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #4a5a6a;
+        }
+        .cloud-status .saved { color: #065f46; }
+        .cloud-status .syncing { color: #a87d2a; }
+        .cloud-status .error { color: #a13d3d; }
+        .cloud-status .ready { color: #0d9488; }
+        .cloud-status .offline { color: #6b7280; }
+
+        .auto-save-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: #6b7280;
+            padding: 0.2rem 0.6rem;
+            border-radius: 30px;
+            background: #f1f4f8;
+        }
+        .auto-save-indicator .saved { color: #065f46; }
+        .auto-save-indicator .saving { color: #a87d2a; animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-3">
+            <div class="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 text-xl">
+                <i class="fas fa-school"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">نظام إدارة بيئة الفصول</h1>
+                <p class="text-xs text-gray-500">العام الدراسي 2026–2027م</p>
+            </div>
+        </div>
+        <!-- حالة السحابة والحفظ التلقائي -->
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="auto-save-indicator" id="autoSaveIndicator">
+                <i class="fas fa-cloud"></i>
+                <span id="autoSaveStatus">جاري التهيئة...</span>
+            </span>
+            <span class="cloud-status" id="cloudStatus">
+                <span class="text-gray-500"><i class="fas fa-circle"></i> محلي</span>
+            </span>
+            <button class="btn btn-success btn-sm" onclick="forceSaveToFirebase()">
+                <i class="fas fa-bolt ml-1"></i> حفظ قسري
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="checkFirebaseConnection()">
+                <i class="fas fa-plug ml-1"></i> اختبار
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="loadFromCloud()">
+                <i class="fas fa-cloud-download-alt ml-1"></i> استرجاع
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="container mx-auto px-4 py-6">
+
+    <div class="flex flex-wrap gap-2 mb-6 items-center">
+        <button class="tab-btn active" onclick="switchTab('inspection')" id="tabInspection">
+            <i class="fas fa-clipboard-list ml-1"></i> الفحص اليومي
+        </button>
+        <button class="tab-btn inactive" onclick="switchTab('reports')" id="tabReports">
+            <i class="fas fa-chart-bar ml-1"></i> التقارير والإحصائيات
+        </button>
+        <button class="delete-all-btn mr-auto" onclick="deleteAllData()">
+            <i class="fas fa-trash-alt ml-1"></i> حذف جميع البيانات
+        </button>
+    </div>
+
+    <!-- تبويب الفحص -->
+    <div id="tabInspectionContent" class="tab-content active">
+        <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+            <div class="card p-4"><div class="stat-number" id="totalClasses">0</div><div class="text-sm text-gray-500">إجمالي الفصول</div></div>
+            <div class="card p-4 border-r-4 border-green-600"><div class="stat-number text-green-700" id="todayInspections">0</div><div class="text-sm text-gray-500">تم فحصها اليوم</div></div>
+            <div class="card p-4 border-r-4 border-yellow-600"><div class="stat-number text-yellow-700" id="notInspected">0</div><div class="text-sm text-gray-500">لم تُفحص</div></div>
+            <div class="card p-4 border-r-4 border-blue-700"><div class="stat-number text-blue-800" id="bestScore">0%</div><div class="text-sm text-gray-500">أفضل فصل اليوم</div><span class="text-xs text-gray-400" id="bestClassCard">-</span></div>
+            <div class="card p-4 border-r-4 border-orange-600"><div class="stat-number" id="openReports">0</div><div class="text-sm text-gray-500">بلاغات مفتوحة</div></div>
+            <div class="card p-4 border-r-4 border-red-600"><div class="stat-number text-red-700" id="newDamages">0</div><div class="text-sm text-gray-500">تلفيات جديدة</div></div>
+        </section>
+
+        <div class="management-panel">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <i class="fas fa-database text-blue-700 text-xl"></i>
+                    <span class="font-semibold text-gray-700">إدارة البيانات:</span>
+                    <button class="btn btn-primary" onclick="document.getElementById('excelUploadAll').click()">
+                        <i class="fas fa-upload ml-1"></i> إضافة الجميع (Excel)
+                    </button>
+                    <input type="file" id="excelUploadAll" accept=".xlsx,.xls" style="display:none" onchange="importAllExcel(event)">
+                    <button class="btn btn-info" onclick="downloadSampleExcel()">
+                        <i class="fas fa-download ml-1"></i> تحميل نموذج Excel
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button class="btn btn-success" onclick="addTeacherManual()"><i class="fas fa-chalkboard-teacher ml-1"></i> إضافة معلم</button>
+                    <button class="btn btn-warning" onclick="addClassManual()"><i class="fas fa-door-open ml-1"></i> إضافة فصل</button>
+                    <button class="btn btn-info" onclick="addStudentManual()"><i class="fas fa-user-plus ml-1"></i> إضافة طالب</button>
+                </div>
+            </div>
+            <div class="text-xs text-gray-500 mt-2">
+                <i class="fas fa-info-circle ml-1"></i> يمكنك استيراد جميع البيانات دفعة واحدة، أو إضافة كل عنصر يدوياً.
+            </div>
+        </div>
+
+        <div class="teacher-selector bg-white shadow-sm border border-gray-200 p-3 mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                <i class="fas fa-chalkboard-teacher text-blue-700 text-xl"></i>
+                <select id="classSelectorMain" class="border rounded-lg px-3 py-1.5 bg-gray-50 text-sm focus:ring-2 focus:ring-blue-300 outline-none" onchange="onClassChange()"></select>
+                <span class="text-gray-400">|</span>
+                <span class="teacher-badge" id="classTeacherDisplay">المعلم: غير محدد</span>
+                <span class="text-sm text-gray-500" id="studentCountDisplay">الطلاب: 0</span>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <i class="fas fa-calendar-alt text-blue-700"></i>
+                <input type="date" id="inspectionDate" class="date-picker" onchange="updateInspectionDate()">
+                <span class="text-sm text-gray-500" id="dayDisplay">اليوم: الأحد</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <button class="btn btn-primary text-sm" onclick="document.getElementById('excelUpload').click()"><i class="fas fa-file-upload ml-1"></i> تحميل طلاب Excel</button>
+                <input type="file" id="excelUpload" accept=".xlsx,.xls" style="display:none" onchange="importStudentsExcel(event)">
+                <button class="btn btn-warning text-sm" onclick="addStudentManual()"><i class="fas fa-user-plus ml-1"></i> إضافة طالب</button>
+                <button class="btn btn-danger text-sm" onclick="deleteAllStudents()"><i class="fas fa-trash-alt ml-1"></i> حذف طلاب الفصل</button>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-semibold text-gray-700"><i class="fas fa-users ml-2 text-blue-700"></i> طلاب الفصل <span id="classDisplayTitle">-</span></h3>
+                <span class="text-sm text-gray-500">عدد الطلاب: <span id="studentCountTitle">0</span></span>
+            </div>
+            <div id="studentsListContainer" class="space-y-2">
+                <p class="text-sm text-gray-400">اختر فصل من القائمة أعلاه</p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mb-6">
+            <button class="btn btn-primary" onclick="document.getElementById('inspectionSection').scrollIntoView({behavior:'smooth'})">
+                <i class="fas fa-plus ml-1"></i> فحص فصل جديد
+            </button>
+            <button class="btn btn-outline" onclick="switchTab('reports')"><i class="fas fa-flag ml-1"></i> عرض التقارير</button>
+            <button class="btn btn-outline" onclick="exportExcel()"><i class="fas fa-file-excel ml-1"></i> تصدير Excel</button>
+        </div>
+
+        <section id="inspectionSection" class="card p-4 md:p-6 mb-8">
+            <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+                <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-clipboard-list ml-2 text-blue-700"></i> الفحص اليومي</h2>
+                <div class="flex items-center gap-3 text-sm bg-gray-50 px-4 py-2 rounded-full flex-wrap">
+                    <span><i class="fas fa-calendar-day ml-1"></i> <span id="todayDate"></span></span>
+                    <span><i class="fas fa-clock ml-1"></i> <span id="currentTime"></span></span>
+                    <span><i class="fas fa-chalkboard ml-1"></i> الفصل: <span id="currentClassDisplay">-</span></span>
+                    <span><i class="fas fa-user-tie ml-1"></i> <span id="currentTeacherDisplay">-</span></span>
+                </div>
+            </div>
+            <form id="inspectionForm">
+                <div id="criteriaContainer"></div>
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-md font-semibold text-gray-700 mb-2"><i class="fas fa-comment ml-2 text-blue-700"></i> ملاحظات عامة على الفصل</h3>
+                    <textarea id="generalNotes" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50" placeholder="اكتب ملاحظات عامة عن الفصل..."></textarea>
+                </div>
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-md font-semibold text-gray-700 mb-2"><i class="fas fa-user-graduate ml-2 text-blue-700"></i> ملاحظات الطلاب</h3>
+                    <div id="studentNotesContainer"></div>
+                </div>
+                <div class="flex justify-end mt-6 gap-3 flex-wrap">
+                    <button type="button" class="btn btn-outline" onclick="resetForm()"><i class="fas fa-undo ml-1"></i> إعادة تعيين</button>
+                    <button type="submit" class="btn btn-success px-8"><i class="fas fa-check ml-1"></i> حفظ واعتماد الفحص</button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+    <!-- تبويب التقارير -->
+    <div id="tabReportsContent" class="tab-content">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
+            <div class="stat-mini-card"><div class="num text-green-700" id="rBestScore">0%</div><div class="label">أفضل فصل</div></div>
+            <div class="stat-mini-card"><div class="num text-blue-800" id="rAvgClean">0%</div><div class="label">متوسط النظافة</div></div>
+            <div class="stat-mini-card"><div class="num text-orange-600" id="rReports">0</div><div class="label">بلاغات</div></div>
+            <div class="stat-mini-card"><div class="num text-red-700" id="rDamages">0</div><div class="label">تلفيات</div></div>
+            <div class="stat-mini-card"><div class="num text-purple-700" id="rClasses">0</div><div class="label">فصول</div></div>
+            <div class="stat-mini-card"><div class="num text-teal-700" id="rStudents">0</div><div class="label">طلاب</div></div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 mb-3 bg-white p-2 rounded-xl shadow-sm border">
+            <i class="fas fa-filter text-blue-700 text-sm"></i>
+            <span class="font-semibold text-xs">تصفية:</span>
+            <input type="date" id="reportDateFilter" class="date-picker text-xs" onchange="filterReports()">
+            <button class="btn btn-outline btn-sm text-xs" onclick="document.getElementById('reportDateFilter').value=''; filterReports();">إلغاء</button>
+            <span class="mx-1 text-gray-300">|</span>
+            <span class="expand-toggle text-xs" onclick="toggleExpandColumns()">
+                <i class="fas fa-expand-arrows-alt ml-1"></i> توسيع
+            </span>
+            <span class="mx-1 text-gray-300">|</span>
+            <button class="btn btn-success btn-sm text-xs" onclick="exportExcel()"><i class="fas fa-file-excel ml-1"></i> تصدير Excel</button>
+        </div>
+
+        <section class="card p-2 mb-4 overflow-hidden">
+            <h3 class="text-sm font-bold text-gray-700 mb-1 text-right"><i class="fas fa-trophy ml-1 text-yellow-700"></i> ترتيب الفصول</h3>
+            <div class="overflow-x-auto">
+                <table class="ranking-table" id="rankingTable">
+                    <thead><tr>
+                        <th class="col-rank-num">#</th>
+                        <th class="col-class">الفصل</th>
+                        <th class="col-percent">النظافة</th>
+                        <th class="col-total">المجموع</th>
+                        <th class="col-status">الحالة</th>
+                    </tr></thead>
+                    <tbody id="rankingBody"></tbody>
+                </table>
+            </div>
+            <div class="text-xs text-gray-400 mt-1 text-left flex justify-between">
+                <span>التحديث التلقائي</span>
+                <span id="recordsCount">عدد السجلات: 0</span>
+            </div>
+        </section>
+
+        <section class="card p-2 mb-4">
+            <h3 class="text-sm font-bold text-gray-700 mb-1 text-right"><i class="fas fa-bell ml-1 text-red-600"></i> البلاغات</h3>
+            <div id="recentReports" class="space-y-1"></div>
+        </section>
+    </div>
+
+    <footer class="footer-credit">
+        <p class="font-semibold">جميع الحقوق محفوظة © محمد رضا عوف 2026</p>
+        <p class="text-xs text-gray-400 mt-1">نظام متابعة الفصول وإدارة بيئة الفصل - العام الدراسي 2026–2027م</p>
+    </footer>
+
+</main>
+
+<!-- نافذة الكاميرا -->
+<div class="camera-overlay" id="cameraOverlay">
+    <div class="camera-box">
+        <video id="cameraVideo" autoplay playsinline></video>
+        <div class="camera-controls">
+            <button class="btn btn-success btn-sm" onclick="capturePhoto()"><i class="fas fa-camera ml-1"></i> التقط</button>
+            <button class="btn btn-danger btn-sm" onclick="closeCamera()"><i class="fas fa-times ml-1"></i> إلغاء</button>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة عرض الصورة المكبرة -->
+<div id="imagePreviewModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(30,40,50,0.9); justify-content:center; align-items:center; z-index:10000;" onclick="this.style.display='none'">
+    <img id="previewModalImg" style="max-width:90%; max-height:90%; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+</div>
+
+<script>
+    // =========================================================
+    // 1. إعدادات Firebase
+    // =========================================================
+    const firebaseConfig = {
+        apiKey: "AIzaSyCsm5BMGSXAEAz6InhIhdXN-BW7YajT4I4",
+        authDomain: "class-leaders-follow-up.firebaseapp.com",
+        projectId: "class-leaders-follow-up",
+        storageBucket: "class-leaders-follow-up.firebasestorage.app",
+        messagingSenderId: "495842422316",
+        appId: "1:495842422316:web:81e8bec18510f2d2212b89",
+        measurementId: "G-V4Q80TZ3S3"
+    };
+
+    let db = null;
+    let firebaseInitialized = false;
+    let isSaving = false;
+    let lastDataHash = '';
+
+    // =========================================================
+    // 2. دوال ضغط البيانات
+    // =========================================================
+    function compressImage(dataUrl, maxWidth = 200, maxHeight = 200, quality = 0.5) {
+        return new Promise((resolve) => {
+            if (!dataUrl || !dataUrl.startsWith('data:image')) {
+                resolve(dataUrl);
+                return;
+            }
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+                if (height > maxHeight) {
+                    width = (width * maxHeight) / height;
+                    height = maxHeight;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressed = canvas.toDataURL('image/jpeg', quality);
+                resolve(compressed);
+            };
+            img.onerror = function() { resolve(dataUrl); };
+            img.src = dataUrl;
+        });
+    }
+
+    async function compressStudentData(students) {
+        const compressed = [];
+        for (const student of students) {
+            const copy = { ...student };
+            if (copy.photo && copy.photo.length > 100000) {
+                try {
+                    copy.photo = await compressImage(copy.photo, 150, 150, 0.4);
+                } catch(e) {}
+            }
+            compressed.push(copy);
+        }
+        return compressed;
+    }
+
+    async function compressStudentNotes(notesMap) {
+        const compressed = {};
+        for (const cid in notesMap) {
+            compressed[cid] = {};
+            for (const sname in notesMap[cid]) {
+                const entry = notesMap[cid][sname];
+                compressed[cid][sname] = { note: entry.note || '', images: [] };
+                if (entry.images && entry.images.length > 0) {
+                    for (const img of entry.images) {
+                        if (img && img.length > 100000) {
+                            try {
+                                const compressedImg = await compressImage(img, 150, 150, 0.4);
+                                compressed[cid][sname].images.push(compressedImg);
+                            } catch(e) {
+                                compressed[cid][sname].images.push(img);
+                            }
+                        } else {
+                            compressed[cid][sname].images.push(img);
+                        }
+                    }
+                }
+            }
+        }
+        return compressed;
+    }
+
+    async function compressAllData(data) {
+        if (data.studentsData && data.studentsData.length > 0) {
+            data.studentsData = await compressStudentData(data.studentsData);
+        }
+        if (data.studentNotesMap) {
+            data.studentNotesMap = await compressStudentNotes(data.studentNotesMap);
+        }
+        return data;
+    }
+
+    function splitDataIntoChunks(data, maxSize = 900000) {
+        const json = JSON.stringify(data);
+        if (json.length <= maxSize) return [data];
+        const chunks = [];
+        const baseProps = ['classesList', 'teachersData', 'rankingData', 'reports', 'version', 'timestamp'];
+        const baseData = {};
+        baseProps.forEach(prop => {
+            if (data[prop] !== undefined) baseData[prop] = data[prop];
+        });
+        chunks.push(baseData);
+        if (data.studentsData && data.studentsData.length > 0) {
+            const chunkSize = Math.max(1, Math.floor(data.studentsData.length / 3));
+            for (let i = 0; i < data.studentsData.length; i += chunkSize) {
+                const chunk = {
+                    ...baseData,
+                    studentsData: data.studentsData.slice(i, i + chunkSize),
+                    chunkIndex: chunks.length,
+                    totalChunks: Math.ceil(data.studentsData.length / chunkSize)
+                };
+                chunks.push(chunk);
+            }
+        }
+        if (data.studentNotesMap) {
+            const keys = Object.keys(data.studentNotesMap);
+            const chunkSize = Math.max(1, Math.floor(keys.length / 3));
+            for (let i = 0; i < keys.length; i += chunkSize) {
+                const chunkKeys = keys.slice(i, i + chunkSize);
+                const chunkNotes = {};
+                chunkKeys.forEach(key => { chunkNotes[key] = data.studentNotesMap[key]; });
+                const chunk = {
+                    ...baseData,
+                    studentNotesMap: chunkNotes,
+                    chunkIndex: chunks.length,
+                    totalChunks: Math.ceil(keys.length / chunkSize)
+                };
+                chunks.push(chunk);
+            }
+        }
+        return chunks;
+    }
+
+    // =========================================================
+    // 3. دوال Firebase - مع حل مشكلة القواعد المغلقة
+    // =========================================================
+    function initFirebase() {
+        try {
+            if (typeof firebase !== 'undefined') {
+                if (!firebase.apps || firebase.apps.length === 0) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.firestore();
+                firebaseInitialized = true;
+                console.log('✅ Firebase initialized successfully');
+                updateCloudStatus('ready', 'السحابة جاهزة');
+                // بدء الحفظ التلقائي بعد التهيئة
+                setTimeout(startAutoSave, 3000);
+                // التحقق من القواعد
+                setTimeout(checkFirebaseConnection, 2000);
+            } else {
+                console.warn('⚠️ Firebase SDK not loaded');
+                updateCloudStatus('offline', 'جاري التحميل...');
+                setTimeout(initFirebase, 1000);
+            }
+        } catch (e) {
+            console.error('❌ Firebase init error:', e);
+            updateCloudStatus('error', 'خطأ في الاتصال');
+        }
+    }
+
+    function updateCloudStatus(type, message) {
+        const el = document.getElementById('cloudStatus');
+        if (!el) return;
+        const icons = {
+            'saved': '<i class="fas fa-check-circle saved"></i>',
+            'syncing': '<i class="fas fa-spinner fa-spin syncing"></i>',
+            'error': '<i class="fas fa-exclamation-circle error"></i>',
+            'ready': '<i class="fas fa-cloud text-teal-600"></i>',
+            'offline': '<i class="fas fa-circle text-gray-400"></i>',
+            'local': '<i class="fas fa-circle text-gray-400"></i>'
+        };
+        const icon = icons[type] || icons.local;
+        el.innerHTML = `${icon} <span class="text-gray-600 text-xs">${message || 'محلي'}</span>`;
+    }
+
+    function updateAutoSaveStatus(status, message) {
+        const el = document.getElementById('autoSaveStatus');
+        const icon = document.getElementById('autoSaveIndicator').querySelector('i');
+        if (!el) return;
+        const statusMap = {
+            'saved': { text: '✅ محفوظ في السحابة', icon: 'fa-cloud', color: 'saved' },
+            'saving': { text: '⏳ جاري الحفظ...', icon: 'fa-spinner fa-spin', color: 'saving' },
+            'error': { text: '❌ فشل الحفظ', icon: 'fa-exclamation-circle', color: 'error' },
+            'offline': { text: '📡 غير متصل', icon: 'fa-cloud', color: 'offline' },
+            'ready': { text: '🔄 جاهز للحفظ', icon: 'fa-cloud', color: 'ready' }
+        };
+        const statusInfo = statusMap[status] || statusMap['offline'];
+        el.textContent = message || statusInfo.text;
+        el.className = statusInfo.color;
+        if (icon) {
+            icon.className = `fas ${statusInfo.icon}`;
+        }
+    }
+
+    function getCurrentData() {
+        return {
+            classesList: classesList,
+            teachersData: teachersData,
+            studentsData: studentsData,
+            inspectionsData: inspectionsData,
+            rankingData: rankingData,
+            reports: reports,
+            studentNotesMap: studentNotesMap,
+            reportStatuses: getReportStatuses(),
+            timestamp: new Date().toISOString(),
+            version: '1.0'
+        };
+    }
+
+    function getDataHash(data) {
+        return JSON.stringify(data);
+    }
+
+    // =========================================================
+    // 4. دوال الحفظ والاسترجاع (مع حل مشكلة القواعد)
+    // =========================================================
+
+    // دالة للتحقق من الاتصال
+    async function checkFirebaseConnection() {
+        try {
+            console.log('🔍 جاري التحقق من الاتصال بـ Firebase...');
+            const testDoc = await db.collection('systemData').doc('test').get();
+            console.log('✅ الاتصال بـ Firebase يعمل');
+            updateCloudStatus('ready', 'متصل');
+            return true;
+        } catch (e) {
+            console.error('❌ فشل الاتصال بـ Firebase:', e.message);
+            console.log('📌 تأكد من تغيير قواعد Firebase إلى:');
+            console.log('  allow read, write: if true;');
+            updateCloudStatus('error', 'تحقق من القواعد');
+            return false;
+        }
+    }
+
+    // دالة لإعادة محاولة الحفظ مع تأخير
+    async function retrySaveWithDelay(data, maxRetries = 5) {
+        let retries = 0;
+        while (retries < maxRetries) {
+            try {
+                console.log(`📤 محاولة الحفظ ${retries + 1}/${maxRetries}...`);
+                await db.collection('systemData').doc('mainData').set(data, { merge: true });
+                console.log('✅ تم الحفظ بنجاح!');
+                return true;
+            } catch (e) {
+                retries++;
+                console.warn(`⚠️ فشلت المحاولة ${retries}:`, e.message);
+                if (retries < maxRetries) {
+                    const delay = 2000 * retries;
+                    console.log(`⏳ الانتظار ${delay/1000} ثانية قبل المحاولة مرة أخرى...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        console.error('❌ فشل الحفظ بعد ' + maxRetries + ' محاولات');
+        return false;
+    }
+
+    // الحفظ القسري
+    async function forceSaveToFirebase() {
+        console.log('🔄 بدء الحفظ القسري...');
+        updateAutoSaveStatus('saving', 'جاري الحفظ القسري...');
+        
+        try {
+            let data = getCurrentData();
+            data = await compressAllData(data);
+            data.lastSavedAt = new Date().toISOString();
+            data._forceSave = true;
+            
+            const saved = await retrySaveWithDelay(data, 5);
+            
+            if (saved) {
+                alert('✅ تم حفظ البيانات في السحابة بنجاح!');
+                updateAutoSaveStatus('saved', '✅ محفوظ في السحابة');
+                updateCloudStatus('saved', 'تم الحفظ');
+                return true;
+            } else {
+                alert('❌ فشل الحفظ. تأكد من تغيير قواعد Firebase.');
+                updateAutoSaveStatus('error', '❌ فشل الحفظ');
+                updateCloudStatus('error', 'فشل الحفظ');
+                return false;
+            }
+        } catch (e) {
+            console.error('❌ خطأ في الحفظ القسري:', e);
+            alert('❌ حدث خطأ: ' + e.message);
+            updateAutoSaveStatus('error', '❌ فشل الحفظ');
+            return false;
+        }
+    }
+
+    // استرجاع البيانات
+    async function loadFromCloud() {
+        if (!firebaseInitialized) {
+            alert('⏳ جاري تهيئة الاتصال بالسحابة...');
+            initFirebase();
+            return;
+        }
+
+        if (!confirm('⚠️ استرجاع البيانات من السحابة سيحل محل البيانات الحالية. هل تريد المتابعة؟')) return;
+
+        try {
+            updateAutoSaveStatus('saving', 'جاري الاسترجاع...');
+            updateCloudStatus('syncing', 'جاري الاسترجاع...');
+
+            let doc = await db.collection('systemData').doc('mainData').get();
+            let data = null;
+            
+            if (doc.exists) {
+                data = doc.data();
+            } else {
+                const metadata = await db.collection('systemData').doc('mainData_metadata').get();
+                if (metadata.exists) {
+                    const totalChunks = metadata.data().totalChunks || 0;
+                    data = {};
+                    for (let i = 0; i < totalChunks; i++) {
+                        const docId = i === 0 ? 'mainData' : `mainData_chunk_${i}`;
+                        const chunkDoc = await db.collection('systemData').doc(docId).get();
+                        if (chunkDoc.exists) {
+                            const chunkData = chunkDoc.data();
+                            Object.keys(chunkData).forEach(key => {
+                                if (key !== 'chunkIndex' && key !== 'totalChunks') {
+                                    if (Array.isArray(chunkData[key]) && data[key]) {
+                                        data[key] = [...data[key], ...chunkData[key]];
+                                    } else if (typeof chunkData[key] === 'object' && data[key]) {
+                                        data[key] = { ...data[key], ...chunkData[key] };
+                                    } else {
+                                        data[key] = chunkData[key];
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (!data || Object.keys(data).length === 0) {
+                alert('ℹ️ لا توجد بيانات محفوظة في السحابة');
+                updateAutoSaveStatus('ready', 'لا توجد بيانات');
+                updateCloudStatus('ready', 'لا توجد بيانات');
+                return;
+            }
+
+            if (applyCloudData(data)) {
+                alert('✅ تم استرجاع البيانات من السحابة بنجاح');
+                updateAutoSaveStatus('saved', '✅ تم الاسترجاع');
+                updateCloudStatus('saved', 'تم الاسترجاع');
+            } else {
+                alert('❌ حدث خطأ أثناء تطبيق البيانات المسترجعة');
+                updateAutoSaveStatus('error', '❌ خطأ في الاسترجاع');
+                updateCloudStatus('error', 'خطأ في الاسترجاع');
+            }
+
+        } catch (e) {
+            console.error('❌ Load from cloud error:', e);
+            alert('❌ حدث خطأ أثناء الاسترجاع من السحابة: ' + e.message);
+            updateAutoSaveStatus('error', '❌ فشل الاسترجاع');
+            updateCloudStatus('error', 'فشل الاسترجاع');
+        }
+    }
+
+    function applyCloudData(data) {
+        if (!data) return false;
+        try {
+            classesList = data.classesList || [];
+            teachersData = data.teachersData || {};
+            studentsData = data.studentsData || [];
+            inspectionsData = data.inspectionsData || [];
+            rankingData = data.rankingData || [];
+            reports = data.reports || [];
+            studentNotesMap = data.studentNotesMap || {};
+            
+            if (data.reportStatuses) {
+                localStorage.setItem('reportStatuses', JSON.stringify(data.reportStatuses));
+            }
+            
+            studentsData.forEach(s => { if (!s.photo) s.photo = null; });
+            
+            saveDataToLocalStorage();
+            populateClassSelectors();
+            onClassChange();
+            renderRanking();
+            renderReports();
+            updateStatsMini();
+            updateBestClass();
+            return true;
+        } catch (e) {
+            console.error('❌ Apply cloud data error:', e);
+            return false;
+        }
+    }
+
+    // =========================================================
+    // 5. الحفظ التلقائي المحسن
+    // =========================================================
+    async function autoSaveToCloud() {
+        if (!firebaseInitialized) {
+            updateAutoSaveStatus('offline', 'جاري التهيئة...');
+            return;
+        }
+
+        if (isSaving) return;
+
+        try {
+            isSaving = true;
+            updateAutoSaveStatus('saving', 'جاري الحفظ...');
+            updateCloudStatus('syncing', 'جاري الحفظ...');
+
+            let data = getCurrentData();
+            const currentHash = getDataHash(data);
+            
+            if (currentHash === lastDataHash && lastDataHash !== '') {
+                updateAutoSaveStatus('saved', '✅ محفوظ');
+                updateCloudStatus('saved', 'محفوظ');
+                isSaving = false;
+                return;
+            }
+
+            data = await compressAllData(data);
+            data.lastSavedAt = new Date().toISOString();
+
+            // محاولة الحفظ
+            const saved = await retrySaveWithDelay(data, 3);
+            
+            if (saved) {
+                lastDataHash = currentHash;
+                updateAutoSaveStatus('saved', '✅ محفوظ في السحابة');
+                updateCloudStatus('saved', 'تم الحفظ');
+            } else {
+                throw new Error('فشل الحفظ بعد عدة محاولات');
+            }
+
+        } catch (e) {
+            console.error('❌ Auto save error:', e);
+            updateAutoSaveStatus('error', '❌ فشل الحفظ');
+            updateCloudStatus('error', 'فشل الحفظ');
+        } finally {
+            isSaving = false;
+        }
+    }
+
+    function startAutoSave() {
+        // حفظ فوري بعد 3 ثوان
+        setTimeout(autoSaveToCloud, 3000);
+        
+        // حفظ كل 30 ثانية
+        setInterval(autoSaveToCloud, 30000);
+        
+        // حفظ عند أي تغيير
+        const debouncedSave = debounce(autoSaveToCloud, 3000);
+        
+        const originalSaveData = saveDataToLocalStorage;
+        saveDataToLocalStorage = function() {
+            originalSaveData();
+            lastDataHash = '';
+            debouncedSave();
+        };
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    // =========================================================
+    // 6. البيانات الأساسية (نفسها كما كانت)
+    // =========================================================
+    let classesList = [];
+    let teachersData = {};
+    let studentsData = [];
+    let inspectionsData = [];
+    let rankingData = [];
+    let reports = [];
+    const criteriaData = [
+        { id: 1, name: 'الأرضية والنظافة العامة', icon: 'fa-broom', damages: ['أوراق متناثرة', 'سوائل مراقة', 'بقايا طعام'] },
+        { id: 2, name: 'الطاولات', icon: 'fa-table', damages: ['كتابة على الطاولة', 'خدوش', 'طاولة مائلة', 'طاولة مكسورة'] },
+        { id: 3, name: 'الكراسي', icon: 'fa-chair', damages: ['كرسي مكسور', 'كرسي غير ثابت', 'كرسي في الممر'] },
+        { id: 4, name: 'السبورة', icon: 'fa-chalkboard', damages: ['كتابة غير مناسبة', 'تلف في السبورة', 'نقص في الأدوات'] },
+        { id: 5, name: 'الشاشة الإلكترونية', icon: 'fa-tv', damages: ['شاشة لا تعمل', 'أسلاك تالفة', 'إعدادات غير مصرح بها'] },
+        { id: 6, name: 'الدواليب والخزائن', icon: 'fa-cabinet-filing', damages: ['فوضى في الكتب', 'مواد غير مناسبة', 'إعاقة الممرات'] },
+        { id: 7, name: 'الممرات والحقائب', icon: 'fa-route', damages: ['حقائب في الممر', 'عوائق تعيق الحركة'] },
+        { id: 8, name: 'اللوحات والمظهر العام', icon: 'fa-palette', damages: ['لوحات غير مرتبة', 'محتوى قديم', 'إهمال في الإنجازات'] }
+    ];
+
+    // =========================================================
+    // 7. حفظ واسترجاع البيانات من localStorage
+    // =========================================================
+    let studentNotesMap = {};
+
+    function saveDataToLocalStorage() {
+        try {
+            const data = {
+                classesList,
+                teachersData,
+                studentsData,
+                inspectionsData,
+                rankingData,
+                reports,
+                studentNotesMap
+            };
+            localStorage.setItem('classEnvData', JSON.stringify(data));
+        } catch(e) { /* تجاهل */ }
+    }
+
+    function loadDataFromLocalStorage() {
+        try {
+            const saved = localStorage.getItem('classEnvData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                classesList = data.classesList || [];
+                teachersData = data.teachersData || {};
+                studentsData = data.studentsData || [];
+                inspectionsData = data.inspectionsData || [];
+                rankingData = data.rankingData || [];
+                reports = data.reports || [];
+                if (data.studentNotesMap) studentNotesMap = data.studentNotesMap;
+                studentsData.forEach(s => { if (!s.photo) s.photo = null; });
+                for (const cid in studentNotesMap) {
+                    for (const sname in studentNotesMap[cid]) {
+                        const entry = studentNotesMap[cid][sname];
+                        if (entry && entry.image && !entry.images) {
+                            entry.images = [entry.image];
+                            delete entry.image;
+                        }
+                        if (entry && !entry.images) entry.images = [];
+                    }
+                }
+            }
+        } catch(e) { /* تجاهل */ }
+    }
+    loadDataFromLocalStorage();
+
+    // =========================================================
+    // 8. إدارة التاريخ
+    // =========================================================
+    function updateInspectionDate() {
+        const dateInput = document.getElementById('inspectionDate');
+        const date = new Date(dateInput.value + 'T00:00:00');
+        if (!isNaN(date)) {
+            const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            document.getElementById('dayDisplay').textContent = 'اليوم: ' + days[date.getDay()];
+        }
+    }
+    function setDefaultDate() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        document.getElementById('inspectionDate').value = `${year}-${month}-${day}`;
+        const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        document.getElementById('dayDisplay').textContent = 'اليوم: ' + days[now.getDay()];
+        document.getElementById('todayDate').textContent = now.toLocaleDateString('ar-SA');
+    }
+    setDefaultDate();
+
+    // =========================================================
+    // 9. دوال مساعدة
+    // =========================================================
+    function getStatusBadge(status) {
+        const map = { 'ممتاز': 'badge-excellent', 'جيد جداً': 'badge-verygood', 'جيد': 'badge-good', 'يحتاج متابعة': 'badge-needs', 'غير مقبول': 'badge-unacceptable' };
+        return map[status] || 'badge-good';
+    }
+    function getBulbClass(status) {
+        const map = { 'ممتاز': 'bulb-green', 'جيد جداً': 'bulb-green', 'جيد': 'bulb-yellow', 'يحتاج متابعة': 'bulb-yellow', 'غير مقبول': 'bulb-red' };
+        return map[status] || 'bulb-gray';
+    }
+    function getStudentsForClass(cls) { return studentsData.filter(s => s.class === cls); }
+    function getTeacherForClass(cls) { return teachersData[cls] || 'غير معين'; }
+    function getStudentOptions(cls) {
+        const students = getStudentsForClass(cls);
+        if (students.length === 0) return '<option value="">لا يوجد طلاب</option>';
+        return students.map(s => `<option value="${s.name}">${s.name} (طاولة ${s.tableNumber}، كرسي ${s.chairNumber})</option>`).join('');
+    }
+    function populateClassSelectors() {
+        const sel = document.getElementById('classSelectorMain');
+        const currentVal = sel.value;
+        sel.innerHTML = '';
+        if (classesList.length === 0) {
+            sel.innerHTML = '<option value="">لا توجد فصول</option>';
+            document.getElementById('classTeacherDisplay').textContent = 'المعلم: غير محدد';
+            document.getElementById('studentCountDisplay').textContent = 'الطلاب: 0';
+            document.getElementById('classDisplayTitle').textContent = '-';
+            document.getElementById('studentCountTitle').textContent = '0';
+            document.getElementById('currentClassDisplay').textContent = '-';
+            document.getElementById('currentTeacherDisplay').textContent = '-';
+            document.getElementById('studentsListContainer').innerHTML = '<p class="text-sm text-gray-400">لا توجد فصول</p>';
+            return;
+        }
+        classesList.forEach(cls => {
+            const opt = document.createElement('option');
+            opt.value = cls;
+            opt.textContent = cls;
+            sel.appendChild(opt);
+        });
+        if (classesList.includes(currentVal)) sel.value = currentVal;
+        else sel.value = classesList[0];
+        onClassChange();
+    }
+
+    // =========================================================
+    // 10. حذف جميع البيانات
+    // =========================================================
+    function deleteAllData() {
+        if (!confirm('⚠️ هل أنت متأكد من حذف جميع البيانات؟\nسيتم حذف: المعلمين، الفصول، الطلاب، الفحوصات، الملاحظات، البلاغات.\nلا يمكن التراجع عن هذا الإجراء!')) return;
+        if (!confirm('تأكيد نهائي: هل تريد حذف كل شيء؟')) return;
+        classesList = [];
+        teachersData = {};
+        studentsData = [];
+        inspectionsData = [];
+        rankingData = [];
+        reports = [];
+        studentNotesMap = {};
+        localStorage.removeItem('reportStatuses');
+        saveDataToLocalStorage();
+        resetForm();
+        populateClassSelectors();
+        onClassChange();
+        renderRanking();
+        renderReports();
+        updateStatsMini();
+        updateBestClass();
+        document.getElementById('totalClasses').textContent = '0';
+        document.getElementById('todayInspections').textContent = '0';
+        document.getElementById('notInspected').textContent = '0';
+        document.getElementById('bestScore').textContent = '0%';
+        document.getElementById('bestClassCard').textContent = '-';
+        document.getElementById('openReports').textContent = '0';
+        document.getElementById('newDamages').textContent = '0';
+        alert('تم حذف جميع البيانات بنجاح');
+    }
+
+    // =========================================================
+    // 11. دوال الإدارة
+    // =========================================================
+    function addTeacherManual() {
+        const name = prompt('أدخل اسم المعلم:');
+        if (!name) return;
+        const cls = prompt('أدخل رمز الفصل (مثل 6B):');
+        if (!cls) return;
+        teachersData[cls] = name;
+        if (!classesList.includes(cls)) classesList.push(cls);
+        if (!rankingData.find(r => r.class === cls)) {
+            rankingData.push({ class: cls, cleanliness: 0, total: 0, status: 'جيد' });
+        }
+        populateClassSelectors();
+        saveDataToLocalStorage();
+        alert(`تم إضافة المعلم ${name} للفصل ${cls}`);
+    }
+    function addClassManual() {
+        const cls = prompt('أدخل رمز الفصل الجديد:');
+        if (!cls) return;
+        if (classesList.includes(cls)) { alert('الفصل موجود'); return; }
+        const teacher = prompt('أدخل اسم المعلم:');
+        if (teacher) teachersData[cls] = teacher;
+        classesList.push(cls);
+        rankingData.push({ class: cls, cleanliness: 0, total: 0, status: 'جيد' });
+        populateClassSelectors();
+        saveDataToLocalStorage();
+        alert(`تم إضافة الفصل ${cls}`);
+    }
+
+    function addStudentManual() {
+        const cls = document.getElementById('classSelectorMain').value;
+        if (!cls) { alert('اختر فصل أولاً'); return; }
+        const name = prompt('اسم الطالب:');
+        if (!name) return;
+        const table = prompt('رقم الطاولة:') || '0';
+        const chair = prompt('رقم الكرسي:') || '0';
+
+        const confirmUpload = confirm('هل تريد رفع صورة للطالب؟');
+        let photo = null;
+        if (confirmUpload) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        photo = ev.target.result;
+                        studentsData.push({ name, class: cls, tableNumber: table, chairNumber: chair, photo: photo });
+                        onClassChange();
+                        saveDataToLocalStorage();
+                        alert(`تم إضافة ${name} مع الصورة`);
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    studentsData.push({ name, class: cls, tableNumber: table, chairNumber: chair, photo: null });
+                    onClassChange();
+                    saveDataToLocalStorage();
+                    alert(`تم إضافة ${name} بدون صورة`);
+                }
+            };
+            input.click();
+            return;
+        } else {
+            studentsData.push({ name, class: cls, tableNumber: table, chairNumber: chair, photo: null });
+            onClassChange();
+            saveDataToLocalStorage();
+            alert(`تم إضافة ${name}`);
+        }
+    }
+
+    function updateStudentPhoto(studentName) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const dataUrl = ev.target.result;
+                    const student = studentsData.find(s => s.name === studentName);
+                    if (student) {
+                        student.photo = dataUrl;
+                        onClassChange();
+                        saveDataToLocalStorage();
+                        alert('تم تحديث الصورة');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        input.click();
+    }
+
+    function deleteStudent(name) {
+        if (!confirm(`حذف ${name}؟`)) return;
+        studentsData = studentsData.filter(s => s.name !== name);
+        onClassChange();
+        saveDataToLocalStorage();
+    }
+    function deleteAllStudents() {
+        const cls = document.getElementById('classSelectorMain').value;
+        if (!cls) return;
+        if (!confirm(`حذف جميع طلاب ${cls}؟`)) return;
+        studentsData = studentsData.filter(s => s.class !== cls);
+        onClassChange();
+        saveDataToLocalStorage();
+    }
+
+    // =========================================================
+    // 12. استيراد Excel
+    // =========================================================
+    function loadXLSX(callback) {
+        if (typeof XLSX !== 'undefined') { callback(); return; }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        script.onload = function() { callback(); };
+        document.head.appendChild(script);
+    }
+    function importAllExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        loadXLSX(() => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet);
+                    if (json.length === 0) { alert('الملف فارغ'); return; }
+                    const required = ['رقم المعلم', 'اسم المعلم', 'رمز الفصل', 'اسم الفصل', 'رقم الطالب', 'اسم الطالب'];
+                    const headers = Object.keys(json[0]);
+                    const missing = required.filter(col => !headers.includes(col) && !headers.includes(col.replace(/ /g,'_')));
+                    if (missing.length > 0) { alert('الأعمدة المطلوبة: ' + missing.join(', ')); return; }
+                    let addedStudents = 0;
+                    json.forEach(row => {
+                        const teacherName = row['اسم المعلم'] || row['اسم_المعلم'] || '';
+                        const classCode = row['رمز الفصل'] || row['رمز_الفصل'] || '';
+                        const studentName = row['اسم الطالب'] || row['اسم_الطالب'] || '';
+                        const studentId = row['رقم الطالب'] || row['رقم_الطالب'] || '';
+                        if (teacherName && classCode) {
+                            teachersData[classCode] = teacherName;
+                            if (!classesList.includes(classCode)) classesList.push(classCode);
+                            if (!rankingData.find(r => r.class === classCode)) {
+                                rankingData.push({ class: classCode, cleanliness: 0, total: 0, status: 'جيد' });
+                            }
+                        }
+                        if (studentName && classCode) {
+                            const exists = studentsData.some(s => s.name === studentName && s.class === classCode);
+                            if (!exists) {
+                                studentsData.push({ name: studentName, class: classCode, tableNumber: studentId || '0', chairNumber: '0', photo: null });
+                                addedStudents++;
+                            }
+                        }
+                    });
+                    populateClassSelectors();
+                    saveDataToLocalStorage();
+                    alert(`تم الاستيراد: ${addedStudents} طالب`);
+                } catch(err) { alert('خطأ: ' + err.message); }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        });
+    }
+    function importStudentsExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        loadXLSX(() => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet);
+                    if (json.length === 0) { alert('الملف فارغ'); return; }
+                    const cls = document.getElementById('classSelectorMain').value;
+                    if (!cls) { alert('اختر فصل أولاً'); return; }
+                    let added = 0;
+                    json.forEach(row => {
+                        const name = row['اسم الطالب'] || row['student'] || '';
+                        const table = row['رقم الطاولة'] || row['table'] || '0';
+                        const chair = row['رقم الكرسي'] || row['chair'] || '0';
+                        if (name) {
+                            const exists = studentsData.some(s => s.name === name && s.class === cls);
+                            if (!exists) {
+                                studentsData.push({ name, class: cls, tableNumber: String(table), chairNumber: String(chair), photo: null });
+                                added++;
+                            }
+                        }
+                    });
+                    onClassChange();
+                    saveDataToLocalStorage();
+                    alert(`تم استيراد ${added} طالب`);
+                } catch(err) { alert('خطأ: ' + err.message); }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        });
+    }
+
+    // =========================================================
+    // 13. تحميل نموذج Excel
+    // =========================================================
+    function downloadSampleExcel() {
+        if (typeof ExcelJS === 'undefined') {
+            alert('جاري تحميل مكتبة Excel، حاول مرة أخرى');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+            script.onload = function() { downloadSampleExcel(); };
+            document.head.appendChild(script);
+            return;
+        }
+        const workbook = new ExcelJS.Workbook();
+        const ws = workbook.addWorksheet('نموذج البيانات');
+        ws.columns = [
+            { header: 'رقم المعلم', key: 'teacherId', width: 15 },
+            { header: 'اسم المعلم', key: 'teacherName', width: 20 },
+            { header: 'رمز الفصل', key: 'classCode', width: 15 },
+            { header: 'اسم الفصل', key: 'className', width: 20 },
+            { header: 'رقم الطالب', key: 'studentId', width: 15 },
+            { header: 'اسم الطالب', key: 'studentName', width: 20 }
+        ];
+        const headerRow = ws.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E4A6B' } };
+        headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.addRow({ teacherId: '101', teacherName: 'أحمد', classCode: '6B', className: 'سادس B', studentId: '1001', studentName: 'سلمان' });
+        ws.addRow({ teacherId: '101', teacherName: 'أحمد', classCode: '6B', className: 'سادس B', studentId: '1002', studentName: 'ناصر' });
+        ws.addRow({ teacherId: '102', teacherName: 'خالد', classCode: '5D', className: 'خامس D', studentId: '1003', studentName: 'علي' });
+        workbook.xlsx.writeBuffer().then(buffer => {
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'نموذج_إضافة_الجميع.xlsx';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        });
+    }
+
+    // =========================================================
+    // 14. تغيير الفصل وعرض الطلاب
+    // =========================================================
+    function onClassChange() {
+        const cls = document.getElementById('classSelectorMain').value;
+        if (!cls || classesList.length === 0) {
+            document.getElementById('classTeacherDisplay').textContent = 'المعلم: غير محدد';
+            document.getElementById('studentCountDisplay').textContent = 'الطلاب: 0';
+            document.getElementById('classDisplayTitle').textContent = '-';
+            document.getElementById('studentCountTitle').textContent = '0';
+            document.getElementById('currentClassDisplay').textContent = '-';
+            document.getElementById('currentTeacherDisplay').textContent = '-';
+            document.getElementById('studentsListContainer').innerHTML = '<p class="text-sm text-gray-400">لا توجد فصول</p>';
+            document.getElementById('criteriaContainer').innerHTML = '<p class="text-sm text-gray-400">اختر فصل للبدء</p>';
+            document.getElementById('studentNotesContainer').innerHTML = '<p class="text-sm text-gray-400">اختر فصل للبدء</p>';
+            return;
+        }
+        const teacher = getTeacherForClass(cls);
+        const students = getStudentsForClass(cls);
+        document.getElementById('classTeacherDisplay').textContent = `المعلم: ${teacher}`;
+        document.getElementById('studentCountDisplay').textContent = `الطلاب: ${students.length}`;
+        document.getElementById('classDisplayTitle').textContent = cls;
+        document.getElementById('studentCountTitle').textContent = students.length;
+        document.getElementById('currentClassDisplay').textContent = cls;
+        document.getElementById('currentTeacherDisplay').textContent = teacher;
+        buildInspectionForm();
+        renderStudentsList();
+        buildStudentNotes();
+        updateBestClass();
+        updateStatsMini();
+    }
+
+    function renderStudentsList() {
+        const container = document.getElementById('studentsListContainer');
+        const cls = document.getElementById('classSelectorMain').value;
+        if (!cls || classesList.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400">لا توجد فصول</p>';
+            return;
+        }
+        const students = getStudentsForClass(cls);
+        if (students.length === 0) { container.innerHTML = '<p class="text-sm text-gray-400">لا يوجد طلاب</p>'; return; }
+        container.innerHTML = '';
+        students.forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'student-row';
+            let photoHtml = '';
+            if (s.photo) {
+                photoHtml = `<img src="${s.photo}" class="student-photo-thumb" alt="صورة ${s.name}" onclick="openImagePreview('${s.photo}')">`;
+            } else {
+                photoHtml = `<span class="text-gray-400 text-sm"><i class="fas fa-user-circle fa-2x"></i></span>`;
+            }
+            div.innerHTML = `
+                ${photoHtml}
+                <span class="font-medium">${s.name}</span>
+                <span class="text-sm text-gray-500">طاولة ${s.tableNumber}</span>
+                <span class="text-sm text-gray-500">كرسي ${s.chairNumber}</span>
+                <button class="text-blue-600 hover:text-blue-800 text-sm" onclick="updateStudentPhoto('${s.name}')"><i class="fas fa-camera ml-1"></i> صورة</button>
+                <button class="text-red-500 hover:text-red-700 text-sm" onclick="deleteStudent('${s.name}')"><i class="fas fa-user-minus ml-1"></i> حذف</button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // =========================================================
+    // 15. بناء نموذج الفحص
+    // =========================================================
+    let currentCameraTarget = null;
+
+    function buildInspectionForm() {
+        const container = document.getElementById('criteriaContainer');
+        container.innerHTML = '';
+        const currentClass = document.getElementById('classSelectorMain').value;
+        if (!currentClass || classesList.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400">اختر فصل للبدء</p>';
+            return;
+        }
+        const studentOptions = getStudentOptions(currentClass);
+
+        criteriaData.forEach((criterion) => {
+            const div = document.createElement('div');
+            div.className = 'inspection-item';
+            if (!studentNotesMap[criterion.id]) studentNotesMap[criterion.id] = {};
+
+            const header = document.createElement('div');
+            header.className = 'flex flex-wrap items-center justify-between gap-2 mb-2';
+            header.innerHTML = `
+                <div class="flex items-center gap-2 flex-wrap">
+                    <i class="fas ${criterion.icon} text-blue-700"></i>
+                    <span class="font-semibold text-gray-800">${criterion.name}</span>
+                    <span class="status-bulb bulb-gray" id="bulb-${criterion.id}"></span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <select class="status-select border rounded-lg px-3 py-1.5 bg-gray-50 text-sm focus:ring-2 focus:ring-blue-300 outline-none" data-criterion-id="${criterion.id}">
+                        <option value="excellent">ممتاز</option>
+                        <option value="very_good" selected>جيد جداً</option>
+                        <option value="good">جيد</option>
+                        <option value="needs">يحتاج متابعة</option>
+                        <option value="unacceptable">غير مقبول</option>
+                    </select>
+                </div>
+            `;
+
+            const body = document.createElement('div');
+            body.className = 'flex flex-wrap items-center gap-3 mt-1';
+
+            const damageGroup = document.createElement('div');
+            damageGroup.className = 'flex flex-wrap gap-1';
+            criterion.damages.forEach(dmg => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'damage-btn';
+                btn.textContent = dmg;
+                btn.onclick = function() {
+                    const notes = div.querySelector('.notes-textarea');
+                    const current = notes.value;
+                    const tag = `⚠️ ${dmg}`;
+                    if (!current.includes(tag)) {
+                        notes.value = current ? current + '\n' + tag : tag;
+                    }
+                    const select = div.querySelector('.status-select');
+                    if (select.value !== 'unacceptable') {
+                        select.value = 'needs';
+                    }
+                    updateBulb(select);
+                };
+                damageGroup.appendChild(btn);
+            });
+
+            const mediaGroup = document.createElement('div');
+            mediaGroup.className = 'flex items-center gap-2 flex-wrap';
+            mediaGroup.innerHTML = `
+                <button type="button" class="camera-icon" onclick="openCameraForItem(this)"><i class="fas fa-camera"></i> تصوير</button>
+                <label class="file-input-wrapper camera-icon">
+                    <i class="fas fa-image"></i> إرفاق
+                    <input type="file" accept="image/*" onchange="previewImage(event, this)">
+                </label>
+                <div class="multi-photos" id="previewContainer-${criterion.id}"></div>
+                <textarea class="notes-textarea border rounded-lg px-3 py-1.5 w-full md:w-48 text-sm bg-gray-50" placeholder="ملاحظات..."></textarea>
+                <select class="student-select border rounded-lg px-2 py-1 text-sm bg-gray-50" data-criterion-id="${criterion.id}">
+                    <option value="">اختر طالباً</option>
+                    ${studentOptions}
+                </select>
+                <button type="button" class="btn btn-sm btn-primary" onclick="addStudentNote(this)">إضافة</button>
+            `;
+
+            body.appendChild(damageGroup);
+            body.appendChild(mediaGroup);
+            div.appendChild(header);
+            div.appendChild(body);
+
+            const savedNotesDiv = document.createElement('div');
+            savedNotesDiv.className = 'mt-2 text-xs text-gray-600';
+            savedNotesDiv.id = `saved-notes-${criterion.id}`;
+            div.appendChild(savedNotesDiv);
+            container.appendChild(div);
+
+            const select = div.querySelector('.status-select');
+            select.addEventListener('change', function() { updateBulb(this); });
+            updateBulb(select);
+            renderSavedNotes(criterion.id);
+        });
+        buildStudentNotes();
+    }
+
+    function addNoteWithImage(criterionId, studentName, noteText, imageBase64) {
+        if (!studentNotesMap[criterionId]) studentNotesMap[criterionId] = {};
+        if (!studentNotesMap[criterionId][studentName]) {
+            studentNotesMap[criterionId][studentName] = { note: '', images: [] };
+        }
+        if (noteText) {
+            const currentNote = studentNotesMap[criterionId][studentName].note;
+            studentNotesMap[criterionId][studentName].note = currentNote ? currentNote + '\n' + noteText : noteText;
+        }
+        if (imageBase64) {
+            studentNotesMap[criterionId][studentName].images.push(imageBase64);
+        }
+        renderSavedNotes(criterionId);
+        saveDataToLocalStorage();
+    }
+
+    function addStudentNote(btn) {
+        const item = btn.closest('.inspection-item');
+        const select = item.querySelector('.student-select');
+        const studentName = select.value;
+        if (!studentName) { alert('اختر طالباً أولاً'); return; }
+        const notesText = item.querySelector('.notes-textarea').value.trim();
+        if (!notesText) { alert('اكتب ملاحظة أولاً'); return; }
+        const criterionId = parseInt(select.dataset.criterionId);
+        const previewContainer = document.getElementById(`previewContainer-${criterionId}`);
+        const images = previewContainer ? previewContainer.querySelectorAll('img') : [];
+        if (images.length === 0) {
+            addNoteWithImage(criterionId, studentName, notesText, null);
+        } else {
+            images.forEach(img => {
+                const dataUrl = img.src;
+                if (dataUrl && dataUrl.startsWith('data:image')) {
+                    addNoteWithImage(criterionId, studentName, notesText, dataUrl);
+                } else {
+                    addNoteWithImage(criterionId, studentName, notesText, null);
+                }
+            });
+            if (previewContainer) previewContainer.innerHTML = '';
+        }
+        item.querySelector('.notes-textarea').value = '';
+        select.value = '';
+    }
+
+    function renderSavedNotes(criterionId) {
+        const container = document.getElementById(`saved-notes-${criterionId}`);
+        if (!container) return;
+        const notesObj = studentNotesMap[criterionId] || {};
+        const entries = Object.entries(notesObj);
+        if (entries.length === 0) {
+            container.innerHTML = '<span class="text-gray-400">لا توجد ملاحظات</span>';
+            return;
+        }
+        let html = '';
+        entries.forEach(([student, data]) => {
+            const noteText = data.note || '';
+            const images = data.images || [];
+            let imgHtml = '';
+            if (images.length > 0) {
+                imgHtml = '<div class="multi-photos">';
+                images.forEach(imgData => {
+                    imgHtml += `<img src="${imgData}" class="saved-note-image" onclick="openImagePreview('${imgData}')" style="cursor:pointer;">`;
+                });
+                imgHtml += '</div>';
+            }
+            html += `<div class="bg-blue-50 p-1 rounded mb-1 flex flex-wrap items-center gap-2">
+                        ${imgHtml}
+                        <span><span class="font-semibold">${student}:</span> ${noteText}</span>
+                     </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function updateBulb(select) {
+        const criterionId = select.dataset.criterionId;
+        const bulb = document.getElementById(`bulb-${criterionId}`);
+        const statusMap = { 'excellent': 'ممتاز', 'very_good': 'جيد جداً', 'good': 'جيد', 'needs': 'يحتاج متابعة', 'unacceptable': 'غير مقبول' };
+        const status = statusMap[select.value] || 'جيد';
+        bulb.className = `status-bulb ${getBulbClass(status)}`;
+    }
+
+    // =========================================================
+    // 16. الكاميرا ورفع الصور
+    // =========================================================
+    function openCameraForItem(btn) {
+        const item = btn.closest('.inspection-item');
+        currentCameraTarget = item;
+        document.getElementById('cameraOverlay').classList.add('active');
+        const video = document.getElementById('cameraVideo');
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.play();
+                })
+                .catch(err => {
+                    alert('تعذر الوصول إلى الكاميرا: ' + err.message);
+                    closeCamera();
+                });
+        } else {
+            alert('المتصفح لا يدعم الكاميرا');
+            closeCamera();
+        }
+    }
+    function capturePhoto() {
+        const video = document.getElementById('cameraVideo');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/png');
+        closeCamera();
+        if (currentCameraTarget) {
+            const criterionId = parseInt(currentCameraTarget.querySelector('.student-select').dataset.criterionId);
+            const previewContainer = document.getElementById(`previewContainer-${criterionId}`);
+            if (previewContainer) {
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.className = 'saved-note-image';
+                img.style.cursor = 'pointer';
+                img.onclick = function() { openImagePreview(dataUrl); };
+                previewContainer.appendChild(img);
+            }
+            const select = currentCameraTarget.querySelector('.student-select');
+            const studentName = select.value;
+            if (studentName) {
+                addNoteWithImage(criterionId, studentName, '', dataUrl);
+            }
+            currentCameraTarget = null;
+        }
+    }
+    function closeCamera() {
+        const video = document.getElementById('cameraVideo');
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+        document.getElementById('cameraOverlay').classList.remove('active');
+        currentCameraTarget = null;
+    }
+
+    function previewImage(event, input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            const item = input.closest('.inspection-item');
+            const select = item.querySelector('.student-select');
+            const criterionId = parseInt(select.dataset.criterionId);
+            const previewContainer = document.getElementById(`previewContainer-${criterionId}`);
+            if (previewContainer) {
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.className = 'saved-note-image';
+                img.style.cursor = 'pointer';
+                img.onclick = function() { openImagePreview(dataUrl); };
+                previewContainer.appendChild(img);
+            }
+            const studentName = select.value;
+            if (studentName) {
+                addNoteWithImage(criterionId, studentName, '', dataUrl);
+            }
+        };
+        reader.readAsDataURL(file);
+        input.value = '';
+    }
+
+    function openImagePreview(src) {
+        const modal = document.getElementById('imagePreviewModal');
+        const img = document.getElementById('previewModalImg');
+        img.src = src;
+        modal.style.display = 'flex';
+    }
+
+    // =========================================================
+    // 17. ملاحظات الطلاب
+    // =========================================================
+    function buildStudentNotes() {
+        const container = document.getElementById('studentNotesContainer');
+        container.innerHTML = '';
+        const currentClass = document.getElementById('classSelectorMain').value;
+        if (!currentClass || classesList.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400">اختر فصل للبدء</p>';
+            return;
+        }
+        const students = getStudentsForClass(currentClass);
+        if (students.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400">لا يوجد طلاب</p>';
+            return;
+        }
+        students.forEach((student, idx) => {
+            const div = document.createElement('div');
+            div.className = 'student-note-item';
+            div.innerHTML = `
+                <span class="font-medium min-w-[80px]">${student.name}</span>
+                <span class="text-xs text-gray-500">طاولة ${student.tableNumber}</span>
+                <span class="text-xs text-gray-500">كرسي ${student.chairNumber}</span>
+                <input type="text" class="border rounded-lg px-2 py-1 text-sm flex-1 student-note-input" placeholder="ملاحظة..." id="studentNote_${idx}">
+                <button type="button" class="text-red-400 hover:text-red-600 text-sm" onclick="clearStudentNote(${idx})"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(div);
+        });
+    }
+    function clearStudentNote(idx) {
+        document.getElementById(`studentNote_${idx}`).value = '';
+    }
+
+    // =========================================================
+    // 18. التاريخ والوقت
+    // =========================================================
+    function updateDateTime() {
+        const now = new Date();
+        document.getElementById('todayDate').textContent = now.toLocaleDateString('ar-SA');
+        document.getElementById('currentTime').textContent = now.toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'});
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    // =========================================================
+    // 19. تحديث أفضل فصل
+    // =========================================================
+    function updateBestClass() {
+        if (rankingData.length === 0) {
+            document.getElementById('bestClassCard').textContent = '-';
+            document.getElementById('bestScore').textContent = '0%';
+            return;
+        }
+        const sorted = [...rankingData].sort((a,b) => b.total - a.total);
+        if (sorted.length > 0) {
+            document.getElementById('bestClassCard').textContent = sorted[0].class;
+            document.getElementById('bestScore').textContent = sorted[0].total + '%';
+        }
+    }
+
+    // =========================================================
+    // 20. إحصائيات صغيرة
+    // =========================================================
+    function updateStatsMini() {
+        document.getElementById('totalClasses').textContent = classesList.length;
+        const today = new Date().toISOString().slice(0,10);
+        const todayInspections = inspectionsData.filter(rec => rec.date === today);
+        document.getElementById('todayInspections').textContent = todayInspections.length;
+        const inspectedClassesToday = new Set(todayInspections.map(rec => rec.class));
+        const notInspectedToday = classesList.filter(cls => !inspectedClassesToday.has(cls));
+        document.getElementById('notInspected').textContent = notInspectedToday.length;
+        updateBestClass();
+        const openReportsCount = reports.filter(r => r.status !== 'مغلق' && r.status !== 'تم الإصلاح').length;
+        document.getElementById('openReports').textContent = openReportsCount;
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        const newDamages = reports.filter(r => {
+            const d = new Date(r.date);
+            return d >= threeDaysAgo && (r.status.includes('تلف') || r.status.includes('كسر') || r.status === 'جديد');
+        });
+        document.getElementById('newDamages').textContent = newDamages.length;
+
+        if (rankingData.length === 0) {
+            document.getElementById('rBestScore').textContent = '0%';
+            document.getElementById('rAvgClean').textContent = '0%';
+        } else {
+            const sorted = [...rankingData].sort((a,b) => b.total - a.total);
+            document.getElementById('rBestScore').textContent = sorted[0]?.total + '%' || '0%';
+            const avg = rankingData.reduce((sum, r) => sum + r.cleanliness, 0) / (rankingData.length || 1);
+            document.getElementById('rAvgClean').textContent = Math.round(avg) + '%';
+        }
+        document.getElementById('rReports').textContent = reports.length;
+        const damageReports = reports.filter(r => r.status.includes('تلف') || r.status.includes('كسر') || r.status === 'جديد');
+        document.getElementById('rDamages').textContent = damageReports.length;
+        document.getElementById('rClasses').textContent = classesList.length;
+        document.getElementById('rStudents').textContent = studentsData.length;
+    }
+
+    // =========================================================
+    // 21. تحديث الترتيب والبلاغات
+    // =========================================================
+    let expandedColumns = false;
+    function toggleExpandColumns() {
+        expandedColumns = !expandedColumns;
+        const table = document.getElementById('rankingTable');
+        if (expandedColumns) {
+            table.style.fontSize = '0.85rem';
+            table.querySelectorAll('th, td').forEach(cell => { cell.style.padding = '0.5rem 0.4rem'; });
+            document.querySelector('.expand-toggle').innerHTML = '<i class="fas fa-compress-arrows-alt ml-1"></i> تضييق';
+        } else {
+            table.style.fontSize = '0.75rem';
+            table.querySelectorAll('th, td').forEach(cell => { cell.style.padding = '0.25rem 0.15rem'; });
+            document.querySelector('.expand-toggle').innerHTML = '<i class="fas fa-expand-arrows-alt ml-1"></i> توسيع';
+        }
+    }
+    function filterReports() {
+        const filterDate = document.getElementById('reportDateFilter').value;
+        let filtered = [...rankingData];
+        if (filterDate) {
+            filtered = filtered.slice(0, 3);
+            document.getElementById('recordsCount').textContent = `عدد السجلات: ${filtered.length}`;
+        } else {
+            document.getElementById('recordsCount').textContent = `عدد السجلات: ${rankingData.length}`;
+        }
+        renderRanking(filtered);
+    }
+    function renderRanking(data) {
+        const list = data || [...rankingData];
+        const tbody = document.getElementById('rankingBody');
+        tbody.innerHTML = '';
+        if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-400 py-2">لا توجد بيانات</td></tr>';
+            document.getElementById('recordsCount').textContent = 'عدد السجلات: 0';
+            return;
+        }
+        const sorted = [...list].sort((a,b) => b.total - a.total);
+        sorted.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index+1);
+            tr.innerHTML = `
+                <td class="col-rank-num">${rank}</td>
+                <td class="col-class">${item.class}</td>
+                <td class="col-percent" style="color:#1f7a4a;font-weight:600;">${item.cleanliness}%</td>
+                <td class="col-total">${item.total}%</td>
+                <td class="col-status"><span class="badge-status ${getStatusBadge(item.status)}">${item.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        document.getElementById('recordsCount').textContent = `عدد السجلات: ${list.length}`;
+        updateBestClass();
+        updateStatsMini();
+    }
+
+    // =========================================================
+    // 22. عرض البلاغات
+    // =========================================================
+    function getReportStatuses() {
+        try {
+            const raw = localStorage.getItem('reportStatuses');
+            return raw ? JSON.parse(raw) : {};
+        } catch(e) { return {}; }
+    }
+    function setReportStatus(id, status) {
+        const statuses = getReportStatuses();
+        statuses[id] = status;
+        localStorage.setItem('reportStatuses', JSON.stringify(statuses));
+        renderReports();
+    }
+
+    function generateReportId(student, cls, note) {
+        return `${cls}_${student}_${note.substring(0,20)}`.replace(/\s/g, '_');
+    }
+
+    function renderReports() {
+        const container = document.getElementById('recentReports');
+        container.innerHTML = '';
+
+        let allNotes = [];
+        for (const criterionId in studentNotesMap) {
+            const notesObj = studentNotesMap[criterionId];
+            for (const studentName in notesObj) {
+                const entry = notesObj[studentName];
+                if (entry && entry.note && entry.note.trim() !== '') {
+                    const student = studentsData.find(s => s.name === studentName);
+                    const classCode = student ? student.class : 'غير محدد';
+                    allNotes.push({
+                        student: studentName,
+                        class: classCode,
+                        note: entry.note.trim(),
+                        images: entry.images || [],
+                        criterion: criterionId
+                    });
+                }
+            }
+        }
+
+        const combined = [];
+        allNotes.forEach(n => {
+            const id = generateReportId(n.student, n.class, n.note);
+            combined.push({
+                id: id,
+                type: 'note',
+                student: n.student,
+                class: n.class,
+                desc: n.note,
+                date: new Date().toISOString().slice(0,10),
+                images: n.images
+            });
+        });
+
+        reports.forEach(r => {
+            const id = 'report_' + r.desc.substring(0,15) + '_' + r.date;
+            combined.push({
+                id: id,
+                type: 'report',
+                student: ' ',
+                class: ' ',
+                desc: r.desc,
+                date: r.date,
+                statusText: r.status
+            });
+        });
+
+        if (combined.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400">لا توجد بلاغات</p>';
+            return;
+        }
+
+        const sorted = combined.sort((a,b) => (a.date > b.date ? -1 : 1));
+        const statuses = getReportStatuses();
+
+        sorted.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'report-item';
+
+            let currentStatus = statuses[item.id] || 'new';
+            if (item.type === 'report' && item.statusText) {
+                const st = item.statusText;
+                if (st.includes('صيانة') || st.includes('تحويل')) currentStatus = 'maintenance';
+                else if (st.includes('إصلاح') || st.includes('مغلق') || st.includes('تم الإصلاح')) currentStatus = 'fixed';
+                else if (st.includes('جديد') || st.includes('غير معالجة')) currentStatus = 'new';
+                else if (st.includes('قيد') || st.includes('مراجعة') || st.includes('متابعة')) currentStatus = 'pending';
+                else currentStatus = 'new';
+                statuses[item.id] = currentStatus;
+                localStorage.setItem('reportStatuses', JSON.stringify(statuses));
+            }
+
+            let dotColor = 'red';
+            let statusLabel = 'جديد';
+            switch (currentStatus) {
+                case 'maintenance': dotColor = 'yellow'; statusLabel = 'صيانة'; break;
+                case 'fixed': dotColor = 'green'; statusLabel = 'تم الإصلاح'; break;
+                case 'pending': dotColor = 'blue'; statusLabel = 'قيد المتابعة'; break;
+                default: dotColor = 'red'; statusLabel = 'جديد';
+            }
+
+            let descHtml = item.desc;
+            if (item.type === 'note') {
+                descHtml = `<span class="font-semibold">${item.student}</span> (${item.class}) : ${item.desc}`;
+            } else {
+                descHtml = `📌 ${item.desc}`;
+            }
+
+            div.innerHTML = `
+                <span class="desc">${descHtml}</span>
+                <span class="meta"><i class="far fa-calendar-alt ml-1"></i> ${item.date}</span>
+                <span class="status-badge" onclick="cycleReportStatus('${item.id}')" title="انقر لتغيير الحالة">
+                    <span class="dot ${dotColor}"></span>
+                    <span>${statusLabel}</span>
+                </span>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function cycleReportStatus(id) {
+        const statuses = getReportStatuses();
+        const current = statuses[id] || 'new';
+        const cycle = ['new', 'maintenance', 'fixed', 'pending'];
+        let idx = cycle.indexOf(current);
+        if (idx === -1) idx = 0;
+        const next = cycle[(idx + 1) % cycle.length];
+        statuses[id] = next;
+        localStorage.setItem('reportStatuses', JSON.stringify(statuses));
+        renderReports();
+    }
+
+    // =========================================================
+    // 23. تصدير Excel
+    // =========================================================
+    function exportExcel() {
+        if (typeof ExcelJS === 'undefined') {
+            alert('جاري تحميل مكتبة Excel، حاول مرة أخرى');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+            script.onload = function() { exportExcel(); };
+            document.head.appendChild(script);
+            return;
+        }
+
+        try {
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'نظام إدارة بيئة الفصول';
+            workbook.created = new Date();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ar-SA');
+            const timeStr = now.toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'});
+
+            const wsSummary = workbook.addWorksheet('ملخص', { properties: { tabColor: { argb: 'FF1E4A6B' } } });
+            wsSummary.addRow(['نظام متابعة الفصول وإدارة بيئة الفصل']);
+            wsSummary.addRow(['العام الدراسي 2026-2027م']);
+            wsSummary.addRow([]);
+            wsSummary.addRow(['تاريخ التصدير', dateStr]);
+            wsSummary.addRow(['الوقت', timeStr]);
+            wsSummary.addRow([]);
+            wsSummary.addRow(['إجمالي الفصول', classesList.length]);
+            wsSummary.addRow(['إجمالي الطلاب', studentsData.length]);
+            wsSummary.addRow(['عدد البلاغات', reports.length]);
+            const avgClean = rankingData.reduce((s, r) => s + r.cleanliness, 0) / (rankingData.length || 1);
+            wsSummary.addRow(['متوسط النظافة', Math.round(avgClean) + '%']);
+            const best = [...rankingData].sort((a,b) => b.total - a.total)[0];
+            if (best) wsSummary.addRow(['أفضل فصل', best.class + ' (' + best.total + '%)']);
+            wsSummary.addRow([]);
+            wsSummary.addRow(['الفصل', 'المعلم']);
+            classesList.forEach(cls => {
+                wsSummary.addRow([cls, getTeacherForClass(cls)]);
+            });
+            wsSummary.getRow(1).font = { bold: true, size: 16 };
+            wsSummary.getRow(1).alignment = { horizontal: 'center' };
+            wsSummary.getRow(2).alignment = { horizontal: 'center' };
+            wsSummary.eachRow((row, idx) => { if (idx > 2) row.alignment = { horizontal: 'right' }; });
+
+            const wsRank = workbook.addWorksheet('ترتيب الفصول', { properties: { tabColor: { argb: 'FFA87D2A' } } });
+            wsRank.columns = [
+                { header: '#', key: 'rank', width: 6 },
+                { header: 'الفصل', key: 'class', width: 12 },
+                { header: 'المعلم', key: 'teacher', width: 15 },
+                { header: 'النظافة', key: 'clean', width: 10 },
+                { header: 'الإجمالي', key: 'total', width: 12 },
+                { header: 'الحالة', key: 'status', width: 15 }
+            ];
+            const hdrRank = wsRank.getRow(1);
+            hdrRank.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+            hdrRank.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFA87D2A' } };
+            const sorted = [...rankingData].sort((a,b) => b.total - a.total);
+            sorted.forEach((item, idx) => {
+                wsRank.addRow({
+                    rank: idx+1,
+                    class: item.class,
+                    teacher: getTeacherForClass(item.class),
+                    clean: item.cleanliness + '%',
+                    total: item.total + '%',
+                    status: item.status
+                });
+            });
+
+            const wsReports = workbook.addWorksheet('البلاغات', { properties: { tabColor: { argb: 'FFA13D3D' } } });
+            wsReports.columns = [
+                { header: 'الوصف', key: 'desc', width: 40 },
+                { header: 'الحالة', key: 'status', width: 20 },
+                { header: 'التاريخ', key: 'date', width: 15 }
+            ];
+            const hdrRep = wsReports.getRow(1);
+            hdrRep.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+            hdrRep.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFA13D3D' } };
+            const allReports = [];
+            for (const cid in studentNotesMap) {
+                const notesObj = studentNotesMap[cid];
+                for (const sname in notesObj) {
+                    const entry = notesObj[sname];
+                    if (entry && entry.note && entry.note.trim() !== '') {
+                        const student = studentsData.find(s => s.name === sname);
+                        const cls = student ? student.class : 'غير محدد';
+                        allReports.push({
+                            desc: `الطالب: ${sname} (${cls}) - ${entry.note}`,
+                            status: 'جديد',
+                            date: new Date().toISOString().slice(0,10)
+                        });
+                    }
+                }
+            }
+            reports.forEach(r => {
+                allReports.push({ desc: r.desc, status: r.status, date: r.date });
+            });
+            allReports.forEach(r => wsReports.addRow(r));
+
+            const wsStudents = workbook.addWorksheet('الطلاب', { properties: { tabColor: { argb: 'FF3D6B7A' } } });
+            wsStudents.columns = [
+                { header: 'اسم الطالب', key: 'name', width: 20 },
+                { header: 'الفصل', key: 'class', width: 12 },
+                { header: 'المعلم', key: 'teacher', width: 15 },
+                { header: 'رقم الطاولة', key: 'table', width: 15 },
+                { header: 'رقم الكرسي', key: 'chair', width: 15 },
+                { header: 'الملاحظة', key: 'note', width: 40 },
+                { header: 'الصور', key: 'photos', width: 50 }
+            ];
+            const hdrStu = wsStudents.getRow(1);
+            hdrStu.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+            hdrStu.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3D6B7A' } };
+            hdrStu.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            const studentImagesMap = {};
+            for (const cid in studentNotesMap) {
+                const notesObj = studentNotesMap[cid];
+                for (const sname in notesObj) {
+                    const data = notesObj[sname];
+                    if (!studentImagesMap[sname]) studentImagesMap[sname] = [];
+                    if (data.images && data.images.length > 0) {
+                        studentImagesMap[sname].push(...data.images);
+                    }
+                }
+            }
+
+            function extractBase64(dataUrl) {
+                if (dataUrl && dataUrl.startsWith('data:image')) {
+                    return dataUrl.split(',')[1];
+                }
+                return dataUrl;
+            }
+
+            studentsData.forEach((student, rowIdx) => {
+                const row = wsStudents.getRow(rowIdx + 2);
+                let allNotes = '';
+                for (const cid in studentNotesMap) {
+                    const entry = studentNotesMap[cid]?.[student.name];
+                    if (entry?.note) {
+                        allNotes += (allNotes ? '\n' : '') + entry.note;
+                    }
+                }
+                row.getCell(1).value = student.name;
+                row.getCell(2).value = student.class;
+                row.getCell(3).value = getTeacherForClass(student.class);
+                row.getCell(4).value = student.tableNumber;
+                row.getCell(5).value = student.chairNumber;
+                row.getCell(6).value = allNotes;
+
+                const allImages = [];
+                if (student.photo) allImages.push(student.photo);
+                if (studentImagesMap[student.name]) {
+                    allImages.push(...studentImagesMap[student.name]);
+                }
+
+                const uniqueImages = [];
+                const seen = new Set();
+                allImages.forEach(img => {
+                    const key = extractBase64(img);
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueImages.push(img);
+                    }
+                });
+
+                if (uniqueImages.length > 0) {
+                    const startCol = 6.2;
+                    const imgWidth = 50;
+                    const imgHeight = 50;
+                    const spacing = 4;
+                    uniqueImages.forEach((imgData, idx) => {
+                        try {
+                            let base64 = extractBase64(imgData);
+                            if (!base64) return;
+                            const imageId = workbook.addImage({
+                                base64: base64,
+                                extension: 'png'
+                            });
+                            const colPos = startCol + (idx * (imgWidth + spacing) / 100);
+                            wsStudents.addImage(imageId, {
+                                tl: { col: colPos, row: rowIdx + 1 },
+                                ext: { width: imgWidth, height: imgHeight }
+                            });
+                        } catch(e) { /* تجاهل */ }
+                    });
+                    const rowHeight = Math.min(30 + uniqueImages.length * 20, 120);
+                    wsStudents.getRow(rowIdx + 2).height = rowHeight;
+                } else {
+                    wsStudents.getRow(rowIdx + 2).height = 30;
+                }
+                row.alignment = { horizontal: 'right', vertical: 'middle' };
+                row.commit();
+            });
+
+            const wsInsp = workbook.addWorksheet('الفحوصات', { properties: { tabColor: { argb: 'FF1F7A4A' } } });
+            wsInsp.columns = [
+                { header: 'الفصل', key: 'class', width: 12 },
+                { header: 'المعلم', key: 'teacher', width: 15 },
+                { header: 'المعيار', key: 'criterion', width: 30 },
+                { header: 'التقييم', key: 'status', width: 20 },
+                { header: 'الملاحظات', key: 'notes', width: 40 },
+                { header: 'الصور', key: 'photos', width: 50 }
+            ];
+            const hdrInsp = wsInsp.getRow(1);
+            hdrInsp.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+            hdrInsp.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F7A4A' } };
+            hdrInsp.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            const currentClass = document.getElementById('classSelectorMain').value;
+            const classTeacher = getTeacherForClass(currentClass);
+
+            let rowIndex = 2;
+            criteriaData.forEach(criterion => {
+                const notesObj = studentNotesMap[criterion.id] || {};
+                const entries = Object.entries(notesObj);
+                let notesList = '';
+                let allImages = [];
+                entries.forEach(([s, data]) => {
+                    if (data.note) notesList += (notesList ? '; ' : '') + `${s}: ${data.note}`;
+                    if (data.images && data.images.length > 0) {
+                        allImages.push(...data.images);
+                    }
+                });
+                const uniqueImgs = [];
+                const seen2 = new Set();
+                allImages.forEach(img => {
+                    const key = extractBase64(img);
+                    if (!seen2.has(key)) { seen2.add(key); uniqueImgs.push(img); }
+                });
+
+                const row = wsInsp.getRow(rowIndex);
+                row.getCell(1).value = currentClass || 'غير محدد';
+                row.getCell(2).value = classTeacher;
+                row.getCell(3).value = criterion.name;
+                row.getCell(4).value = '';
+                row.getCell(5).value = notesList;
+
+                if (uniqueImgs.length > 0) {
+                    const startCol = 5.2;
+                    const imgWidth = 50;
+                    const imgHeight = 50;
+                    const spacing = 4;
+                    uniqueImgs.forEach((imgData, idx) => {
+                        try {
+                            let base64 = extractBase64(imgData);
+                            if (!base64) return;
+                            const imageId = workbook.addImage({
+                                base64: base64,
+                                extension: 'png'
+                            });
+                            const colPos = startCol + (idx * (imgWidth + spacing) / 100);
+                            wsInsp.addImage(imageId, {
+                                tl: { col: colPos, row: rowIndex - 1 },
+                                ext: { width: imgWidth, height: imgHeight }
+                            });
+                        } catch(e) { /* تجاهل */ }
+                    });
+                    const rowHeight = Math.min(30 + uniqueImgs.length * 20, 120);
+                    wsInsp.getRow(rowIndex).height = rowHeight;
+                } else {
+                    wsInsp.getRow(rowIndex).height = 30;
+                }
+                row.alignment = { horizontal: 'right', vertical: 'middle' };
+                row.commit();
+                rowIndex++;
+            });
+
+            const footerText = 'جميع الحقوق محفوظة © محمد رضا عوف 2026';
+            [wsSummary, wsRank, wsReports, wsStudents, wsInsp].forEach(ws => {
+                const lastRow = ws.lastRow;
+                if (lastRow) {
+                    const footerRow = ws.addRow([]);
+                    footerRow.getCell(1).value = footerText;
+                    footerRow.getCell(1).font = { italic: true, size: 10, color: { argb: 'FF6B7280' } };
+                    ws.mergeCells(`A${footerRow.number}:${String.fromCharCode(64 + ws.columns.length)}${footerRow.number}`);
+                }
+            });
+
+            workbook.xlsx.writeBuffer().then(buffer => {
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `تقرير_الفصول_${now.toISOString().slice(0,10)}.xlsx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }).catch(err => {
+                alert('حدث خطأ أثناء تصدير Excel: ' + err.message);
+            });
+
+        } catch (err) {
+            alert('حدث خطأ: ' + err.message);
+        }
+    }
+
+    // =========================================================
+    // 24. إعادة تعيين النموذج
+    // =========================================================
+    function resetForm() {
+        document.querySelectorAll('.status-select').forEach(sel => sel.value = 'very_good');
+        document.querySelectorAll('.notes-textarea').forEach(t => t.value = '');
+        document.querySelectorAll('.multi-photos').forEach(container => container.innerHTML = '');
+        document.querySelectorAll('.file-input-wrapper input[type="file"]').forEach(inp => inp.value = '');
+        document.querySelectorAll('.student-select').forEach(sel => sel.value = '');
+        document.getElementById('generalNotes').value = '';
+        document.querySelectorAll('#studentNotesContainer input').forEach(inp => inp.value = '');
+        document.querySelectorAll('.status-select').forEach(sel => updateBulb(sel));
+        criteriaData.forEach(c => renderSavedNotes(c.id));
+    }
+
+    // =========================================================
+    // 25. حفظ الفحص
+    // =========================================================
+    document.getElementById('inspectionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const items = document.querySelectorAll('.inspection-item');
+        let total = 0;
+        const inspectionDate = document.getElementById('inspectionDate').value;
+        const dayName = document.getElementById('dayDisplay').textContent.replace('اليوم: ', '');
+        
+        items.forEach(item => {
+            const select = item.querySelector('.status-select');
+            const status = select.options[select.selectedIndex].text;
+            const scoreMap = { 'ممتاز': 10, 'جيد جداً': 8, 'جيد': 6, 'يحتاج متابعة': 4, 'غير مقبول': 2 };
+            total += scoreMap[status] || 0;
+        });
+        const avg = (total / (items.length * 10)) * 100;
+        const grade = avg >= 95 ? 'ممتاز' : avg >= 90 ? 'جيد جداً' : avg >= 80 ? 'جيد' : avg >= 70 ? 'يحتاج تحسين' : 'غير مقبول';
+        
+        const classSelected = document.getElementById('classSelectorMain').value;
+        const detailsCopy = JSON.parse(JSON.stringify(studentNotesMap));
+        const inspectionRecord = {
+            class: classSelected,
+            date: inspectionDate,
+            day: dayName,
+            score: avg,
+            grade: grade,
+            details: detailsCopy
+        };
+        inspectionsData.push(inspectionRecord);
+        
+        alert(`تم حفظ الفحص!\nالتاريخ: ${inspectionDate} (${dayName})\nالنتيجة: ${avg.toFixed(1)}% (${grade})`);
+        
+        const existing = rankingData.find(r => r.class === classSelected);
+        if (existing) {
+            existing.cleanliness = Math.round(avg);
+            existing.total = (avg * 0.3 + (existing.total || 90) * 0.7);
+            existing.total = Math.round(existing.total * 10) / 10;
+            existing.status = grade;
+        }
+        renderRanking();
+        renderReports();
+        updateStatsMini();
+        saveDataToLocalStorage();
+        resetForm();
+    });
+
+    // =========================================================
+    // 26. التبويب
+    // =========================================================
+    function switchTab(tab) {
+        const inspectionContent = document.getElementById('tabInspectionContent');
+        const reportsContent = document.getElementById('tabReportsContent');
+        const tabInspection = document.getElementById('tabInspection');
+        const tabReports = document.getElementById('tabReports');
+
+        if (tab === 'inspection') {
+            inspectionContent.classList.add('active');
+            reportsContent.classList.remove('active');
+            tabInspection.className = 'tab-btn active';
+            tabReports.className = 'tab-btn inactive';
+        } else {
+            inspectionContent.classList.remove('active');
+            reportsContent.classList.add('active');
+            tabInspection.className = 'tab-btn inactive';
+            tabReports.className = 'tab-btn active';
+            renderRanking();
+            renderReports();
+            updateStatsMini();
+        }
+    }
+
+    // =========================================================
+    // 27. التهيئة
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        initFirebase();
+        populateClassSelectors();
+        onClassChange();
+        renderRanking();
+        renderReports();
+        updateStatsMini();
+        setDefaultDate();
+    });
+
+    // =========================================================
+    // 28. جعل الدوال عامة
+    // =========================================================
+    window.exportExcel = exportExcel;
+    window.switchTab = switchTab;
+    window.resetForm = resetForm;
+    window.previewImage = previewImage;
+    window.openCameraForItem = openCameraForItem;
+    window.capturePhoto = capturePhoto;
+    window.closeCamera = closeCamera;
+    window.onClassChange = onClassChange;
+    window.addTeacherManual = addTeacherManual;
+    window.addClassManual = addClassManual;
+    window.addStudentManual = addStudentManual;
+    window.updateStudentPhoto = updateStudentPhoto;
+    window.deleteStudent = deleteStudent;
+    window.deleteAllStudents = deleteAllStudents;
+    window.deleteAllData = deleteAllData;
+    window.importAllExcel = importAllExcel;
+    window.importStudentsExcel = importStudentsExcel;
+    window.downloadSampleExcel = downloadSampleExcel;
+    window.clearStudentNote = clearStudentNote;
+    window.updateBulb = updateBulb;
+    window.addStudentNote = addStudentNote;
+    window.toggleExpandColumns = toggleExpandColumns;
+    window.filterReports = filterReports;
+    window.updateInspectionDate = updateInspectionDate;
+    window.openImagePreview = openImagePreview;
+    window.cycleReportStatus = cycleReportStatus;
+    window.forceSaveToFirebase = forceSaveToFirebase;
+    window.loadFromCloud = loadFromCloud;
+    window.checkFirebaseConnection = checkFirebaseConnection;
+</script>
+</body>
+</html>
